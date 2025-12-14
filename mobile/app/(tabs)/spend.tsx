@@ -1,6 +1,6 @@
 // kofa/mobile/app/(tabs)/spend.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp, FadeIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,6 @@ const API_BASE = 'https://kofa.onrender.com';
 
 interface ExpenseSummary {
     business_burn: number;
-    personal_spend: number;
     total_outflow: number;
     expense_count: number;
 }
@@ -20,18 +19,27 @@ interface Expense {
     amount: number;
     description: string;
     category: string;
-    expense_type: 'BUSINESS' | 'PERSONAL';
     date: string;
 }
 
+const CATEGORIES = [
+    { id: 'stock', label: 'Stock/Inventory', icon: '📦' },
+    { id: 'transport', label: 'Transport', icon: '🚗' },
+    { id: 'utilities', label: 'Utilities', icon: '💡' },
+    { id: 'salary', label: 'Salary/Wages', icon: '👨‍💼' },
+    { id: 'rent', label: 'Rent', icon: '🏠' },
+    { id: 'marketing', label: 'Marketing', icon: '📣' },
+    { id: 'other', label: 'Other', icon: '📋' },
+];
+
 export default function SpendScreen() {
-    const [mode, setMode] = useState<'BUSINESS' | 'PERSONAL'>('BUSINESS');
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
-    const [category, setCategory] = useState('Operations');
+    const [category, setCategory] = useState('stock');
     const [summary, setSummary] = useState<ExpenseSummary | null>(null);
     const [recentExpenses, setRecentExpenses] = useState<Expense[]>([]);
     const [loading, setLoading] = useState(false);
+    const [showCategories, setShowCategories] = useState(false);
 
     useEffect(() => {
         fetchSummary();
@@ -52,15 +60,19 @@ export default function SpendScreen() {
         try {
             const res = await fetch(`${API_BASE}/expenses/list`);
             const data = await res.json();
-            setRecentExpenses(data.slice(-5).reverse());
+            setRecentExpenses(data.slice(-10).reverse());
         } catch (error) {
             console.error('Error fetching expenses:', error);
         }
     };
 
     const handleLogExpense = async () => {
-        if (!amount || !description) {
-            alert('Please enter amount and description');
+        if (!amount || parseFloat(amount) <= 0) {
+            Alert.alert('Error', 'Please enter a valid amount');
+            return;
+        }
+        if (!description.trim()) {
+            Alert.alert('Error', 'Please enter a description');
             return;
         }
 
@@ -71,27 +83,34 @@ export default function SpendScreen() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     amount: parseFloat(amount),
-                    description,
+                    description: description.trim(),
                     category,
-                    expense_type: mode,
+                    expense_type: 'BUSINESS', // Always business
                 }),
             });
 
             if (res.ok) {
+                Alert.alert('Success', 'Expense logged!');
                 setAmount('');
                 setDescription('');
+                setCategory('stock');
                 fetchSummary();
                 fetchExpenses();
+            } else {
+                const err = await res.text();
+                Alert.alert('Error', err || 'Failed to log expense');
             }
         } catch (error) {
             console.error('Error logging expense:', error);
-            alert('Failed to log expense. Check if backend is running.');
+            Alert.alert('Error', 'Failed to log expense. Check your connection.');
         } finally {
             setLoading(false);
         }
     };
 
     const formatNaira = (amount: number) => `₦${amount.toLocaleString()}`;
+
+    const selectedCategory = CATEGORIES.find(c => c.id === category) || CATEGORIES[0];
 
     return (
         <View style={styles.container}>
@@ -104,9 +123,7 @@ export default function SpendScreen() {
             {/* Accent Orbs */}
             <View style={styles.orbContainer}>
                 <LinearGradient
-                    colors={mode === 'BUSINESS'
-                        ? ['rgba(43, 175, 242, 0.2)', 'transparent']
-                        : ['rgba(0, 223, 255, 0.2)', 'transparent']}
+                    colors={['rgba(43, 175, 242, 0.2)', 'transparent']}
                     style={[styles.orb, styles.orbMain]}
                 />
             </View>
@@ -123,17 +140,13 @@ export default function SpendScreen() {
                         </LinearGradient>
                         <Text style={styles.brandName}>KOFA</Text>
                     </View>
-                    <Text style={styles.headerTitle}>Money Flow</Text>
-                    <Text style={styles.subtitle}>Track your spending</Text>
+                    <Text style={styles.headerTitle}>Business Expenses</Text>
+                    <Text style={styles.subtitle}>Track spending for profit calculation</Text>
                 </Animated.View>
 
-                {/* Summary Cards */}
+                {/* Summary Card */}
                 <Animated.View entering={FadeInUp.delay(100).springify()} style={styles.summaryContainer}>
-                    <TouchableOpacity
-                        style={[styles.summaryCard, mode === 'BUSINESS' && styles.summaryCardActive]}
-                        onPress={() => setMode('BUSINESS')}
-                        activeOpacity={0.8}
-                    >
+                    <View style={styles.summaryCard}>
                         <LinearGradient
                             colors={['rgba(43, 175, 242, 0.2)', 'rgba(43, 175, 242, 0.05)']}
                             style={styles.summaryCardGradient}
@@ -143,49 +156,18 @@ export default function SpendScreen() {
                                     colors={['#2BAFF2', '#1F57F5']}
                                     style={styles.summaryIconBg}
                                 >
-                                    <Ionicons name="briefcase" size={18} color="#FFF" />
+                                    <Ionicons name="trending-down" size={22} color="#FFF" />
                                 </LinearGradient>
-                                {mode === 'BUSINESS' && (
-                                    <View style={styles.activeIndicator}>
-                                        <View style={styles.activeDot} />
-                                    </View>
-                                )}
                             </View>
-                            <Text style={styles.summaryLabel}>Business</Text>
+                            <Text style={styles.summaryLabel}>Total Business Expenses</Text>
                             <Text style={styles.summaryAmount}>
                                 {formatNaira(summary?.business_burn || 0)}
                             </Text>
-                        </LinearGradient>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                        style={[styles.summaryCard, mode === 'PERSONAL' && styles.summaryCardActive]}
-                        onPress={() => setMode('PERSONAL')}
-                        activeOpacity={0.8}
-                    >
-                        <LinearGradient
-                            colors={['rgba(0, 223, 255, 0.2)', 'rgba(0, 223, 255, 0.05)']}
-                            style={styles.summaryCardGradient}
-                        >
-                            <View style={styles.summaryIconRow}>
-                                <LinearGradient
-                                    colors={['#00DFFF', '#2BAFF2']}
-                                    style={styles.summaryIconBg}
-                                >
-                                    <Ionicons name="person" size={18} color="#FFF" />
-                                </LinearGradient>
-                                {mode === 'PERSONAL' && (
-                                    <View style={styles.activeIndicator}>
-                                        <View style={[styles.activeDot, { backgroundColor: '#00DFFF' }]} />
-                                    </View>
-                                )}
-                            </View>
-                            <Text style={styles.summaryLabel}>Personal</Text>
-                            <Text style={[styles.summaryAmount, { color: '#00DFFF' }]}>
-                                {formatNaira(summary?.personal_spend || 0)}
+                            <Text style={styles.expenseCount}>
+                                {summary?.expense_count || 0} expenses logged
                             </Text>
                         </LinearGradient>
-                    </TouchableOpacity>
+                    </View>
                 </Animated.View>
 
                 {/* Input Form */}
@@ -195,12 +177,10 @@ export default function SpendScreen() {
                         style={styles.formGradient}
                     >
                         <View style={styles.formHeader}>
-                            <Text style={styles.formTitle}>
-                                {mode === 'BUSINESS' ? '💼 Business Expense' : '👤 Personal Expense'}
-                            </Text>
+                            <Text style={styles.formTitle}>💼 Log Business Expense</Text>
                         </View>
 
-                        <Text style={styles.label}>Amount (₦)</Text>
+                        <Text style={styles.label}>AMOUNT (₦)</Text>
                         <View style={styles.inputContainer}>
                             <Text style={styles.inputPrefix}>₦</Text>
                             <TextInput
@@ -213,14 +193,52 @@ export default function SpendScreen() {
                             />
                         </View>
 
-                        <Text style={styles.label}>Description</Text>
+                        <Text style={styles.label}>DESCRIPTION</Text>
                         <TextInput
                             style={styles.inputFull}
-                            placeholder="e.g. Diesel, Lunch, Data"
+                            placeholder="e.g. Bought 10 Nike shoes"
                             placeholderTextColor="rgba(255,255,255,0.3)"
                             value={description}
                             onChangeText={setDescription}
                         />
+
+                        <Text style={styles.label}>CATEGORY</Text>
+                        <TouchableOpacity
+                            style={styles.categorySelector}
+                            onPress={() => setShowCategories(!showCategories)}
+                        >
+                            <Text style={styles.categoryIcon}>{selectedCategory.icon}</Text>
+                            <Text style={styles.categoryText}>{selectedCategory.label}</Text>
+                            <Ionicons
+                                name={showCategories ? "chevron-up" : "chevron-down"}
+                                size={20}
+                                color="rgba(255,255,255,0.5)"
+                            />
+                        </TouchableOpacity>
+
+                        {showCategories && (
+                            <View style={styles.categoryList}>
+                                {CATEGORIES.map((cat) => (
+                                    <TouchableOpacity
+                                        key={cat.id}
+                                        style={[
+                                            styles.categoryOption,
+                                            category === cat.id && styles.categoryOptionActive
+                                        ]}
+                                        onPress={() => {
+                                            setCategory(cat.id);
+                                            setShowCategories(false);
+                                        }}
+                                    >
+                                        <Text style={styles.categoryOptionIcon}>{cat.icon}</Text>
+                                        <Text style={styles.categoryOptionText}>{cat.label}</Text>
+                                        {category === cat.id && (
+                                            <Ionicons name="checkmark" size={18} color="#2BAFF2" />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
 
                         <TouchableOpacity
                             style={styles.saveBtn}
@@ -229,9 +247,7 @@ export default function SpendScreen() {
                             activeOpacity={0.85}
                         >
                             <LinearGradient
-                                colors={mode === 'BUSINESS'
-                                    ? ['#2BAFF2', '#1F57F5']
-                                    : ['#00DFFF', '#2BAFF2']}
+                                colors={['#2BAFF2', '#1F57F5']}
                                 start={{ x: 0, y: 0 }}
                                 end={{ x: 1, y: 0 }}
                                 style={styles.saveBtnGradient}
@@ -246,7 +262,7 @@ export default function SpendScreen() {
 
                 {/* Recent Expenses */}
                 <Animated.View entering={FadeInUp.delay(300).springify()} style={styles.recentSection}>
-                    <Text style={styles.sectionTitle}>Recent Outflow</Text>
+                    <Text style={styles.sectionTitle}>Recent Expenses</Text>
 
                     {recentExpenses.length === 0 ? (
                         <Animated.View entering={FadeIn.delay(400)} style={styles.emptyState}>
@@ -257,7 +273,7 @@ export default function SpendScreen() {
                                 <Text style={styles.emptyIcon}>📊</Text>
                             </LinearGradient>
                             <Text style={styles.emptyTitle}>No expenses logged</Text>
-                            <Text style={styles.emptyText}>Start tracking your money flow</Text>
+                            <Text style={styles.emptyText}>Start tracking your business expenses</Text>
                         </Animated.View>
                     ) : (
                         recentExpenses.map((expense, index) => (
@@ -272,26 +288,17 @@ export default function SpendScreen() {
                                 >
                                     <View style={styles.logLeft}>
                                         <LinearGradient
-                                            colors={expense.expense_type === 'BUSINESS'
-                                                ? ['#2BAFF2', '#1F57F5']
-                                                : ['#00DFFF', '#2BAFF2']}
+                                            colors={['#2BAFF2', '#1F57F5']}
                                             style={styles.logTypeBadge}
                                         >
-                                            <Ionicons
-                                                name={expense.expense_type === 'BUSINESS' ? 'briefcase' : 'person'}
-                                                size={14}
-                                                color="#000"
-                                            />
+                                            <Ionicons name="briefcase" size={14} color="#FFF" />
                                         </LinearGradient>
                                         <View>
                                             <Text style={styles.logDesc}>{expense.description}</Text>
                                             <Text style={styles.logCategory}>{expense.category}</Text>
                                         </View>
                                     </View>
-                                    <Text style={[
-                                        styles.logAmount,
-                                        { color: expense.expense_type === 'BUSINESS' ? '#2BAFF2' : '#00DFFF' }
-                                    ]}>
+                                    <Text style={styles.logAmount}>
                                         -{formatNaira(expense.amount)}
                                     </Text>
                                 </LinearGradient>
@@ -366,56 +373,42 @@ const styles = StyleSheet.create({
         marginTop: 4,
     },
     summaryContainer: {
-        flexDirection: 'row',
-        gap: 12,
         marginBottom: 20,
     },
     summaryCard: {
-        flex: 1,
         borderRadius: 20,
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.08)',
-    },
-    summaryCardActive: {
-        borderColor: 'rgba(43, 175, 242, 0.5)',
+        borderColor: 'rgba(43, 175, 242, 0.3)',
     },
     summaryCardGradient: {
-        padding: 16,
+        padding: 20,
         alignItems: 'flex-start',
     },
     summaryIconRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        width: '100%',
         marginBottom: 12,
     },
     summaryIconBg: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
+        width: 44,
+        height: 44,
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    activeIndicator: {
-        padding: 4,
-    },
-    activeDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#2BAFF2',
-    },
     summaryLabel: {
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: 12,
+        color: 'rgba(255,255,255,0.6)',
+        fontSize: 14,
         fontWeight: '500',
     },
     summaryAmount: {
-        fontSize: 22,
+        fontSize: 32,
         fontWeight: '700',
         color: '#2BAFF2',
+        marginTop: 4,
+    },
+    expenseCount: {
+        color: 'rgba(255,255,255,0.4)',
+        fontSize: 12,
         marginTop: 4,
     },
     formCard: {
@@ -441,7 +434,6 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         marginTop: 16,
         fontSize: 12,
-        textTransform: 'uppercase',
         letterSpacing: 1,
         fontWeight: '600',
     },
@@ -471,6 +463,47 @@ const styles = StyleSheet.create({
         padding: 16,
         borderRadius: 14,
         fontSize: 16,
+    },
+    categorySelector: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 14,
+        padding: 14,
+    },
+    categoryIcon: {
+        fontSize: 20,
+        marginRight: 10,
+    },
+    categoryText: {
+        flex: 1,
+        color: '#FFFFFF',
+        fontSize: 16,
+    },
+    categoryList: {
+        marginTop: 8,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        borderRadius: 14,
+        overflow: 'hidden',
+    },
+    categoryOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: 'rgba(255,255,255,0.05)',
+    },
+    categoryOptionActive: {
+        backgroundColor: 'rgba(43, 175, 242, 0.1)',
+    },
+    categoryOptionIcon: {
+        fontSize: 18,
+        marginRight: 10,
+    },
+    categoryOptionText: {
+        flex: 1,
+        color: '#FFFFFF',
+        fontSize: 14,
     },
     saveBtn: {
         marginTop: 24,
@@ -560,5 +593,6 @@ const styles = StyleSheet.create({
     logAmount: {
         fontSize: 16,
         fontWeight: '700',
+        color: '#FF6B6B',
     },
 });
