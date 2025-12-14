@@ -1,4 +1,4 @@
-# owo_flow/chatbot/routers/installments.py
+# kofa/chatbot/routers/installments.py
 """
 Installments API Router
 BNPL (Buy Now Pay Later) endpoints.

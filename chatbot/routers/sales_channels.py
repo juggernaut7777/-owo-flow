@@ -1,4 +1,4 @@
-# owo_flow/chatbot/routers/sales_channels.py
+# kofa/chatbot/routers/sales_channels.py
 """
 Sales Channels API Router
 Multi-platform order aggregation endpoints.

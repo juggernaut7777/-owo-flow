@@ -1,11 +1,11 @@
 /**
- * Owo Flow API Client
+ * KOFA API Client
  * Connects to the FastAPI backend
  */
 
-// API Base URL - Change this to your computer's local IP for testing
-// Find your IP: Open CMD and run 'ipconfig' -> look for IPv4 Address
-const API_BASE_URL = 'http://192.168.1.100:8000';  // << UPDATE THIS!
+// API Base URL - Update this after deploying kofa-api to Render
+// For local testing: use your computer's IP like 'http://192.168.x.x:8000'
+const API_BASE_URL = 'https://kofa-api.onrender.com';  // << UPDATE THIS!
 
 export interface Product {
     id: string;
@@ -270,12 +270,162 @@ export function getMockOrders(): Order[] {
     ];
 }
 
+
+// ============== KOFA 2.0 API FUNCTIONS ==============
+
+export interface NewProduct {
+    name: string;
+    price_ngn: number;
+    stock_level: number;
+    description?: string;
+    category?: string;
+    voice_tags?: string[];
+}
+
+export interface ManualSaleData {
+    product_name: string;
+    quantity: number;
+    amount_ngn: number;
+    channel: 'instagram' | 'walk-in' | 'whatsapp' | 'other';
+    notes?: string;
+}
+
+/**
+ * Create a new product
+ */
+export async function createProduct(product: NewProduct): Promise<{ status: string; product: Product }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(product),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Create Product Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Log a manual sale (from Instagram, walk-in, etc.)
+ */
+export async function logManualSale(sale: ManualSaleData): Promise<{ status: string; sale: any }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/sales/manual`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sale),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Log Manual Sale Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update an existing product
+ */
+export async function updateProduct(productId: string, updates: Partial<NewProduct>): Promise<{ status: string; product: Product }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products/${productId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Update Product Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Restock a product (add to stock level)
+ */
+export async function restockProduct(productId: string, quantity: number): Promise<{ status: string; new_stock_level: number }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/products/${productId}/restock`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantity }),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Restock Product Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update order status
+ */
+export async function updateOrderStatus(orderId: string, status: 'pending' | 'paid' | 'fulfilled'): Promise<{ status: string; order: Order }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status }),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Update Order Status Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Get current bot style
+ */
+export async function getBotStyle(): Promise<{ current_style: string; available_styles: string[] }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/settings/bot-style`);
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.warn('Get Bot Style Error:', error);
+        return { current_style: 'corporate', available_styles: ['corporate', 'street'] };
+    }
+}
+
+/**
+ * Set bot style (corporate or street/Nigerian pidgin)
+ */
+export async function setBotStyle(style: 'corporate' | 'street'): Promise<{ status: string; bot_style: string }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/settings/bot-style`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ style }),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Set Bot Style Error:', error);
+        throw error;
+    }
+}
+
+
 export default {
     sendMessage,
     checkHealth,
     fetchProducts,
     fetchOrders,
     createOrder,
+    createProduct,
+    updateProduct,
+    restockProduct,
+    updateOrderStatus,
+    logManualSale,
+    getBotStyle,
+    setBotStyle,
     formatNaira,
     getMockProducts,
     getMockOrders,

@@ -1,4 +1,4 @@
-# owo_flow/chatbot/routers/analytics.py
+# kofa/chatbot/routers/analytics.py
 """
 Analytics API Router
 Dashboard endpoints for revenue, products, and customers.

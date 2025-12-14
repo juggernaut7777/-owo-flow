@@ -93,7 +93,7 @@ INSERT INTO products (name, price_ngn, stock_level, description, voice_tags, cat
 
 ### Deploy the Backend
 1. Select your OwoFlow repository (or "Public Git Repository")
-2. Enter repo URL if needed: `https://github.com/YOUR_USERNAME/owo_flow`
+2. Enter repo URL if needed: `https://github.com/YOUR_USERNAME/kofa`
 3. Configure:
    - **Name**: `owoflow-api`
    - **Region**: Frankfurt (closest to Africa)

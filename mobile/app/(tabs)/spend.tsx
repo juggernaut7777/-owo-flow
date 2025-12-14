@@ -1,12 +1,12 @@
-// owo_flow/mobile/app/(tabs)/spend.tsx
+// kofa/mobile/app/(tabs)/spend.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, TextInput, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeInUp, FadeIn } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, shadows, borderRadius, spacing } from '@/constants';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'https://kofa.onrender.com';
 
 interface ExpenseSummary {
     business_burn: number;
@@ -94,276 +94,471 @@ export default function SpendScreen() {
     const formatNaira = (amount: number) => `₦${amount.toLocaleString()}`;
 
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-            {/* Header */}
-            <Animated.View entering={FadeInDown.springify()} style={styles.header}>
-                <Text style={styles.greeting}>OwoFlow</Text>
-                <Text style={styles.headerTitle}>Money Flow 💸</Text>
-            </Animated.View>
+        <View style={styles.container}>
+            {/* Background */}
+            <LinearGradient
+                colors={['#05090E', '#0D1117', '#05090E']}
+                style={StyleSheet.absoluteFillObject}
+            />
 
-            {/* Summary Cards */}
-            <Animated.View entering={FadeInUp.delay(100).springify()} style={styles.summaryContainer}>
-                <View style={[styles.summaryCard, styles.bizCard]}>
-                    <Ionicons name="briefcase" size={20} color="#00ff7f" />
-                    <Text style={styles.summaryLabel}>Business</Text>
-                    <Text style={[styles.summaryAmount, { color: '#00ff7f' }]}>
-                        {formatNaira(summary?.business_burn || 0)}
-                    </Text>
-                </View>
-                <View style={[styles.summaryCard, styles.persCard]}>
-                    <Ionicons name="person" size={20} color="#ff00ff" />
-                    <Text style={styles.summaryLabel}>Personal</Text>
-                    <Text style={[styles.summaryAmount, { color: '#ff00ff' }]}>
-                        {formatNaira(summary?.personal_spend || 0)}
-                    </Text>
-                </View>
-            </Animated.View>
-
-            {/* THE HYBRID SWITCH */}
-            <Animated.View entering={FadeInUp.delay(200).springify()} style={styles.toggleContainer}>
-                <TouchableOpacity
-                    style={[styles.toggleBtn, mode === 'BUSINESS' && styles.activeBiz]}
-                    onPress={() => setMode('BUSINESS')}>
-                    <Ionicons name="briefcase" size={18} color={mode === 'BUSINESS' ? '#000' : '#888'} />
-                    <Text style={[styles.toggleText, mode === 'BUSINESS' && styles.activeText]}> Business</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                    style={[styles.toggleBtn, mode === 'PERSONAL' && styles.activePers]}
-                    onPress={() => setMode('PERSONAL')}>
-                    <Ionicons name="person" size={18} color={mode === 'PERSONAL' ? '#000' : '#888'} />
-                    <Text style={[styles.toggleText, mode === 'PERSONAL' && styles.activeText]}> Personal</Text>
-                </TouchableOpacity>
-            </Animated.View>
-
-            {/* THE INPUT FORM */}
-            <Animated.View
-                entering={FadeInUp.delay(300).springify()}
-                style={[styles.card, { borderColor: mode === 'BUSINESS' ? '#00ff7f' : '#ff00ff' }]}
-            >
-                <Text style={styles.label}>Amount (₦)</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="0.00"
-                    placeholderTextColor="#666"
-                    keyboardType="numeric"
-                    value={amount}
-                    onChangeText={setAmount}
+            {/* Accent Orbs */}
+            <View style={styles.orbContainer}>
+                <LinearGradient
+                    colors={mode === 'BUSINESS'
+                        ? ['rgba(43, 175, 242, 0.2)', 'transparent']
+                        : ['rgba(0, 223, 255, 0.2)', 'transparent']}
+                    style={[styles.orb, styles.orbMain]}
                 />
+            </View>
 
-                <Text style={styles.label}>What for?</Text>
-                <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Diesel, Lunch, Data"
-                    placeholderTextColor="#666"
-                    value={description}
-                    onChangeText={setDescription}
-                />
-
-                <TouchableOpacity
-                    style={[styles.saveBtn, { backgroundColor: mode === 'BUSINESS' ? '#00ff7f' : '#ff00ff' }]}
-                    onPress={handleLogExpense}
-                    disabled={loading}
-                >
-                    <Text style={styles.saveBtnText}>
-                        {loading ? 'Logging...' : 'Log Expense'}
-                    </Text>
-                </TouchableOpacity>
-            </Animated.View>
-
-            {/* RECENT LOGS */}
-            <Animated.View entering={FadeInUp.delay(400).springify()} style={styles.recentSection}>
-                <Text style={styles.sectionTitle}>Recent Outflow</Text>
-                {recentExpenses.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <Text style={styles.emptyIcon}>📊</Text>
-                        <Text style={styles.emptyText}>No expenses logged yet</Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                {/* Header */}
+                <Animated.View entering={FadeInDown.springify()} style={styles.header}>
+                    <View style={styles.brandRow}>
+                        <LinearGradient
+                            colors={['#2BAFF2', '#1F57F5']}
+                            style={styles.brandBadge}
+                        >
+                            <Text style={styles.brandIcon}>⚡</Text>
+                        </LinearGradient>
+                        <Text style={styles.brandName}>KOFA</Text>
                     </View>
-                ) : (
-                    recentExpenses.map((expense, index) => (
-                        <View key={expense.id} style={styles.logItem}>
-                            <View style={styles.logLeft}>
-                                <View style={[
-                                    styles.logTypeDot,
-                                    { backgroundColor: expense.expense_type === 'BUSINESS' ? '#00ff7f' : '#ff00ff' }
-                                ]} />
-                                <View>
-                                    <Text style={styles.logDesc}>{expense.description}</Text>
-                                    <Text style={styles.logCategory}>{expense.category}</Text>
-                                </View>
+                    <Text style={styles.headerTitle}>Money Flow</Text>
+                    <Text style={styles.subtitle}>Track your spending</Text>
+                </Animated.View>
+
+                {/* Summary Cards */}
+                <Animated.View entering={FadeInUp.delay(100).springify()} style={styles.summaryContainer}>
+                    <TouchableOpacity
+                        style={[styles.summaryCard, mode === 'BUSINESS' && styles.summaryCardActive]}
+                        onPress={() => setMode('BUSINESS')}
+                        activeOpacity={0.8}
+                    >
+                        <LinearGradient
+                            colors={['rgba(43, 175, 242, 0.2)', 'rgba(43, 175, 242, 0.05)']}
+                            style={styles.summaryCardGradient}
+                        >
+                            <View style={styles.summaryIconRow}>
+                                <LinearGradient
+                                    colors={['#2BAFF2', '#1F57F5']}
+                                    style={styles.summaryIconBg}
+                                >
+                                    <Ionicons name="briefcase" size={18} color="#FFF" />
+                                </LinearGradient>
+                                {mode === 'BUSINESS' && (
+                                    <View style={styles.activeIndicator}>
+                                        <View style={styles.activeDot} />
+                                    </View>
+                                )}
                             </View>
-                            <Text style={[
-                                styles.logAmount,
-                                { color: expense.expense_type === 'BUSINESS' ? '#00ff7f' : '#ff00ff' }
-                            ]}>
-                                -{formatNaira(expense.amount)}
+                            <Text style={styles.summaryLabel}>Business</Text>
+                            <Text style={styles.summaryAmount}>
+                                {formatNaira(summary?.business_burn || 0)}
+                            </Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.summaryCard, mode === 'PERSONAL' && styles.summaryCardActive]}
+                        onPress={() => setMode('PERSONAL')}
+                        activeOpacity={0.8}
+                    >
+                        <LinearGradient
+                            colors={['rgba(0, 223, 255, 0.2)', 'rgba(0, 223, 255, 0.05)']}
+                            style={styles.summaryCardGradient}
+                        >
+                            <View style={styles.summaryIconRow}>
+                                <LinearGradient
+                                    colors={['#00DFFF', '#2BAFF2']}
+                                    style={styles.summaryIconBg}
+                                >
+                                    <Ionicons name="person" size={18} color="#FFF" />
+                                </LinearGradient>
+                                {mode === 'PERSONAL' && (
+                                    <View style={styles.activeIndicator}>
+                                        <View style={[styles.activeDot, { backgroundColor: '#00DFFF' }]} />
+                                    </View>
+                                )}
+                            </View>
+                            <Text style={styles.summaryLabel}>Personal</Text>
+                            <Text style={[styles.summaryAmount, { color: '#00DFFF' }]}>
+                                {formatNaira(summary?.personal_spend || 0)}
+                            </Text>
+                        </LinearGradient>
+                    </TouchableOpacity>
+                </Animated.View>
+
+                {/* Input Form */}
+                <Animated.View entering={FadeInUp.delay(200).springify()} style={styles.formCard}>
+                    <LinearGradient
+                        colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']}
+                        style={styles.formGradient}
+                    >
+                        <View style={styles.formHeader}>
+                            <Text style={styles.formTitle}>
+                                {mode === 'BUSINESS' ? '💼 Business Expense' : '👤 Personal Expense'}
                             </Text>
                         </View>
-                    ))
-                )}
-            </Animated.View>
 
-            <View style={{ height: 100 }} />
-        </ScrollView>
+                        <Text style={styles.label}>Amount (₦)</Text>
+                        <View style={styles.inputContainer}>
+                            <Text style={styles.inputPrefix}>₦</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="0"
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                keyboardType="numeric"
+                                value={amount}
+                                onChangeText={setAmount}
+                            />
+                        </View>
+
+                        <Text style={styles.label}>Description</Text>
+                        <TextInput
+                            style={styles.inputFull}
+                            placeholder="e.g. Diesel, Lunch, Data"
+                            placeholderTextColor="rgba(255,255,255,0.3)"
+                            value={description}
+                            onChangeText={setDescription}
+                        />
+
+                        <TouchableOpacity
+                            style={styles.saveBtn}
+                            onPress={handleLogExpense}
+                            disabled={loading}
+                            activeOpacity={0.85}
+                        >
+                            <LinearGradient
+                                colors={mode === 'BUSINESS'
+                                    ? ['#2BAFF2', '#1F57F5']
+                                    : ['#00DFFF', '#2BAFF2']}
+                                start={{ x: 0, y: 0 }}
+                                end={{ x: 1, y: 0 }}
+                                style={styles.saveBtnGradient}
+                            >
+                                <Text style={styles.saveBtnText}>
+                                    {loading ? 'Logging...' : '+ Log Expense'}
+                                </Text>
+                            </LinearGradient>
+                        </TouchableOpacity>
+                    </LinearGradient>
+                </Animated.View>
+
+                {/* Recent Expenses */}
+                <Animated.View entering={FadeInUp.delay(300).springify()} style={styles.recentSection}>
+                    <Text style={styles.sectionTitle}>Recent Outflow</Text>
+
+                    {recentExpenses.length === 0 ? (
+                        <Animated.View entering={FadeIn.delay(400)} style={styles.emptyState}>
+                            <LinearGradient
+                                colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']}
+                                style={styles.emptyIconContainer}
+                            >
+                                <Text style={styles.emptyIcon}>📊</Text>
+                            </LinearGradient>
+                            <Text style={styles.emptyTitle}>No expenses logged</Text>
+                            <Text style={styles.emptyText}>Start tracking your money flow</Text>
+                        </Animated.View>
+                    ) : (
+                        recentExpenses.map((expense, index) => (
+                            <Animated.View
+                                key={expense.id}
+                                entering={FadeInUp.delay(400 + index * 50)}
+                                style={styles.logItem}
+                            >
+                                <LinearGradient
+                                    colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)']}
+                                    style={styles.logItemGradient}
+                                >
+                                    <View style={styles.logLeft}>
+                                        <LinearGradient
+                                            colors={expense.expense_type === 'BUSINESS'
+                                                ? ['#2BAFF2', '#1F57F5']
+                                                : ['#00DFFF', '#2BAFF2']}
+                                            style={styles.logTypeBadge}
+                                        >
+                                            <Ionicons
+                                                name={expense.expense_type === 'BUSINESS' ? 'briefcase' : 'person'}
+                                                size={14}
+                                                color="#000"
+                                            />
+                                        </LinearGradient>
+                                        <View>
+                                            <Text style={styles.logDesc}>{expense.description}</Text>
+                                            <Text style={styles.logCategory}>{expense.category}</Text>
+                                        </View>
+                                    </View>
+                                    <Text style={[
+                                        styles.logAmount,
+                                        { color: expense.expense_type === 'BUSINESS' ? '#2BAFF2' : '#00DFFF' }
+                                    ]}>
+                                        -{formatNaira(expense.amount)}
+                                    </Text>
+                                </LinearGradient>
+                            </Animated.View>
+                        ))
+                    )}
+                </Animated.View>
+
+                <View style={{ height: 120 }} />
+            </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.dark.DEFAULT,
-        padding: spacing[4],
-        paddingTop: spacing[12],
+        backgroundColor: '#05090E',
+    },
+    orbContainer: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: 'hidden',
+    },
+    orb: {
+        position: 'absolute',
+        width: 300,
+        height: 300,
+        borderRadius: 150,
+    },
+    orbMain: {
+        top: -100,
+        right: -100,
+    },
+    scrollContent: {
+        paddingHorizontal: 20,
     },
     header: {
-        marginBottom: spacing[4],
+        paddingTop: 60,
+        marginBottom: 20,
     },
-    greeting: {
-        fontSize: 14,
-        color: Colors.text.muted,
+    brandRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
+    },
+    brandBadge: {
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    brandIcon: {
+        fontSize: 12,
+    },
+    brandName: {
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#00DFFF',
+        letterSpacing: 2,
     },
     headerTitle: {
-        fontSize: 28,
-        fontWeight: 'bold',
-        color: '#fff',
+        fontSize: 32,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        letterSpacing: -0.5,
+    },
+    subtitle: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.5)',
+        marginTop: 4,
     },
     summaryContainer: {
         flexDirection: 'row',
-        gap: spacing[3],
-        marginBottom: spacing[4],
+        gap: 12,
+        marginBottom: 20,
     },
     summaryCard: {
         flex: 1,
-        backgroundColor: Colors.dark.card,
-        padding: spacing[4],
-        borderRadius: borderRadius.xl,
-        alignItems: 'center',
-        ...shadows.card,
-    },
-    bizCard: {
+        borderRadius: 20,
+        overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(0, 255, 127, 0.3)',
+        borderColor: 'rgba(255,255,255,0.08)',
     },
-    persCard: {
-        borderWidth: 1,
-        borderColor: 'rgba(255, 0, 255, 0.3)',
+    summaryCardActive: {
+        borderColor: 'rgba(43, 175, 242, 0.5)',
     },
-    summaryLabel: {
-        color: Colors.text.muted,
-        fontSize: 12,
-        marginTop: spacing[2],
+    summaryCardGradient: {
+        padding: 16,
+        alignItems: 'flex-start',
     },
-    summaryAmount: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginTop: spacing[1],
-    },
-    toggleContainer: {
-        flexDirection: 'row',
-        marginBottom: spacing[4],
-        backgroundColor: Colors.dark.card,
-        borderRadius: borderRadius.lg,
-        padding: 4,
-    },
-    toggleBtn: {
-        flex: 1,
-        flexDirection: 'row',
-        justifyContent: 'center',
-        paddingVertical: 12,
-        alignItems: 'center',
-        borderRadius: borderRadius.DEFAULT,
-    },
-    activeBiz: { backgroundColor: '#00ff7f' },
-    activePers: { backgroundColor: '#ff00ff' },
-    toggleText: { fontWeight: '600', color: '#888', marginLeft: 8 },
-    activeText: { color: '#000', fontWeight: 'bold' },
-    card: {
-        backgroundColor: Colors.dark.card,
-        padding: spacing[5],
-        borderRadius: borderRadius.xl,
-        borderLeftWidth: 4,
-        ...shadows.card,
-    },
-    label: {
-        color: '#888',
-        marginBottom: spacing[2],
-        marginTop: spacing[3],
-        fontSize: 12,
-        textTransform: 'uppercase',
-        letterSpacing: 1,
-    },
-    input: {
-        backgroundColor: Colors.dark.DEFAULT,
-        color: '#fff',
-        padding: spacing[4],
-        borderRadius: borderRadius.lg,
-        fontSize: 18,
-        borderBottomWidth: 1,
-        borderColor: Colors.dark.muted,
-    },
-    saveBtn: {
-        padding: spacing[4],
-        borderRadius: borderRadius.lg,
-        marginTop: spacing[6],
-        alignItems: 'center',
-        ...shadows.primary,
-    },
-    saveBtnText: {
-        color: '#000',
-        fontWeight: '900',
-        fontSize: 16,
-    },
-    recentSection: {
-        marginTop: spacing[6],
-    },
-    sectionTitle: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: spacing[4],
-    },
-    emptyState: {
-        alignItems: 'center',
-        paddingVertical: spacing[8],
-    },
-    emptyIcon: {
-        fontSize: 48,
-        marginBottom: spacing[2],
-    },
-    emptyText: {
-        color: Colors.text.muted,
-        fontSize: 14,
-    },
-    logItem: {
+    summaryIconRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: spacing[4],
-        borderBottomWidth: 1,
-        borderColor: Colors.dark.muted,
+        width: '100%',
+        marginBottom: 12,
+    },
+    summaryIconBg: {
+        width: 36,
+        height: 36,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    activeIndicator: {
+        padding: 4,
+    },
+    activeDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#2BAFF2',
+    },
+    summaryLabel: {
+        color: 'rgba(255,255,255,0.5)',
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    summaryAmount: {
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#2BAFF2',
+        marginTop: 4,
+    },
+    formCard: {
+        borderRadius: 24,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+        marginBottom: 24,
+    },
+    formGradient: {
+        padding: 20,
+    },
+    formHeader: {
+        marginBottom: 16,
+    },
+    formTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#FFFFFF',
+    },
+    label: {
+        color: 'rgba(255,255,255,0.5)',
+        marginBottom: 8,
+        marginTop: 16,
+        fontSize: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+        fontWeight: '600',
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        borderRadius: 14,
+        paddingHorizontal: 16,
+    },
+    inputPrefix: {
+        fontSize: 24,
+        color: '#2BAFF2',
+        fontWeight: '600',
+        marginRight: 8,
+    },
+    input: {
+        flex: 1,
+        color: '#FFFFFF',
+        fontSize: 28,
+        fontWeight: '700',
+        paddingVertical: 16,
+    },
+    inputFull: {
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        color: '#FFFFFF',
+        padding: 16,
+        borderRadius: 14,
+        fontSize: 16,
+    },
+    saveBtn: {
+        marginTop: 24,
+        borderRadius: 14,
+        overflow: 'hidden',
+    },
+    saveBtnGradient: {
+        paddingVertical: 16,
+        alignItems: 'center',
+    },
+    saveBtnText: {
+        color: '#000',
+        fontWeight: '700',
+        fontSize: 16,
+    },
+    recentSection: {
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        marginBottom: 16,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyIconContainer: {
+        width: 80,
+        height: 80,
+        borderRadius: 24,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
+    },
+    emptyIcon: {
+        fontSize: 36,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#FFFFFF',
+        marginBottom: 4,
+    },
+    emptyText: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.5)',
+    },
+    logItem: {
+        marginBottom: 10,
+        borderRadius: 16,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
+    },
+    logItemGradient: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 14,
     },
     logLeft: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing[3],
+        gap: 12,
     },
-    logTypeDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+    logTypeBadge: {
+        width: 32,
+        height: 32,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     logDesc: {
-        color: '#fff',
-        fontSize: 16,
+        color: '#FFFFFF',
+        fontSize: 15,
         fontWeight: '500',
     },
     logCategory: {
-        color: Colors.text.muted,
+        color: 'rgba(255,255,255,0.4)',
         fontSize: 12,
         marginTop: 2,
     },
     logAmount: {
         fontSize: 16,
-        fontWeight: 'bold',
+        fontWeight: '700',
     },
 });

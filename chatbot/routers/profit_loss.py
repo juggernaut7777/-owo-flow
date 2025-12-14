@@ -1,4 +1,4 @@
-# owo_flow/chatbot/routers/profit_loss.py
+# kofa/chatbot/routers/profit_loss.py
 """
 Profit/Loss API Router
 Real-time profit visibility for Nigerian vendors.

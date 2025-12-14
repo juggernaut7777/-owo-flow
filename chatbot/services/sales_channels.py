@@ -1,4 +1,4 @@
-# owo_flow/chatbot/services/sales_channels.py
+# kofa/chatbot/services/sales_channels.py
 """
 Sales Channels Service for Multi-Platform Order Aggregation
 Tracks orders from WhatsApp, Instagram, TikTok, Walk-in, etc.

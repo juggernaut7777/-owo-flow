@@ -1,4 +1,4 @@
-# owo_flow/chatbot/services/profit_loss.py
+# kofa/chatbot/services/profit_loss.py
 """
 Profit/Loss Service for Nigerian SME Dashboard
 Tracks actual profit by considering cost of goods sold (COGS) and expenses.

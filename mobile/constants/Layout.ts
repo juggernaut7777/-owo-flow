@@ -78,15 +78,15 @@ export const shadows = {
     },
     // Primary color shadow for buttons
     primary: {
-        shadowColor: '#00A859',
+        shadowColor: '#2BAFF2',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.4,
         shadowRadius: 12,
         elevation: 6,
     },
-    // Gold accent shadow
+    // Cyan accent shadow
     accent: {
-        shadowColor: '#FFD700',
+        shadowColor: '#00DFFF',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 12,

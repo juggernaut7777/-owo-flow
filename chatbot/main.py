@@ -13,9 +13,9 @@ from .routers import (
 )
 
 app = FastAPI(
-    title="Owo Flow Commerce Engine",
-    description="WhatsApp-first commerce system for Nigerian market",
-    version="1.0.0"
+    title="KOFA Commerce Engine",
+    description="AI-powered commerce platform for modern merchants",
+    version="2.0.0"
 )
 
 # In‑memory store for demo purposes (User preferences)
@@ -27,7 +27,7 @@ inventory_manager = InventoryManager()
 intent_recognizer = IntentRecognizer()
 payment_manager = PaymentManager()
 # Default to street style for demo, but could be dynamic based on user profile
-response_formatter = ResponseFormatter(style=ResponseStyle.STREET)
+response_formatter = ResponseFormatter(style=ResponseStyle.CORPORATE)
 
 class MessageRequest(BaseModel):
     """Incoming message payload."""
@@ -67,7 +67,7 @@ class OrderResponse(BaseModel):
 @app.get("/")
 async def root():
     """Health check endpoint."""
-    return {"status": "online", "service": "Owo Flow Commerce Engine", "version": "1.0.0"}
+    return {"status": "online", "service": "KOFA Commerce Engine", "version": "2.0.0"}
 
 @app.get("/health")
 async def health_check():
@@ -289,6 +289,215 @@ async def set_seller_account(seller_id: str, payload: dict):
     USERS.setdefault(seller_id, {})["bank_name"] = bank_name
     USERS[seller_id]["bank_account_number"] = bank_account
     return {"status": "success", "seller_id": seller_id}
+
+
+# ============== KOFA 2.0 NEW ENDPOINTS ==============
+
+class BotStyleRequest(BaseModel):
+    """Bot style preference."""
+    style: str  # "corporate" or "street"
+
+class ProductCreate(BaseModel):
+    """Create a new product."""
+    name: str
+    price_ngn: float
+    stock_level: int = 0
+    description: Optional[str] = None
+    category: Optional[str] = None
+    voice_tags: Optional[List[str]] = None
+
+class ManualSale(BaseModel):
+    """Log a manual sale."""
+    product_name: str
+    quantity: int
+    amount_ngn: float
+    channel: str  # "instagram", "walk-in", "whatsapp", "other"
+    notes: Optional[str] = None
+
+
+@router.post("/settings/bot-style")
+async def set_bot_style(request: BotStyleRequest, user_id: str = "default"):
+    """Toggle bot personality between Corporate and Nigerian Pidgin."""
+    global response_formatter
+    if request.style.lower() == "street":
+        response_formatter = ResponseFormatter(style=ResponseStyle.STREET)
+    else:
+        response_formatter = ResponseFormatter(style=ResponseStyle.CORPORATE)
+    
+    USERS.setdefault(user_id, {})["bot_style"] = request.style.lower()
+    return {
+        "status": "success",
+        "bot_style": request.style.lower(),
+        "message": f"Bot personality set to {request.style}"
+    }
+
+
+@router.get("/settings/bot-style")
+async def get_bot_style():
+    """Get current bot style."""
+    return {
+        "current_style": response_formatter.style.value,
+        "available_styles": ["corporate", "street"]
+    }
+
+
+@router.post("/products")
+async def create_product(product: ProductCreate):
+    """Add a new product to inventory."""
+    new_product = {
+        "id": f"prod-{uuid.uuid4().hex[:8]}",
+        "name": product.name,
+        "price_ngn": product.price_ngn,
+        "stock_level": product.stock_level,
+        "description": product.description or "",
+        "category": product.category or "uncategorized",
+        "voice_tags": product.voice_tags or []
+    }
+    
+    # Add to inventory (in production, this would insert to Supabase)
+    inventory_manager.add_product(new_product)
+    
+    return {
+        "status": "success",
+        "message": f"Product '{product.name}' added successfully",
+        "product": new_product
+    }
+
+
+class ProductUpdate(BaseModel):
+    """Update product fields."""
+    name: Optional[str] = None
+    price_ngn: Optional[float] = None
+    stock_level: Optional[int] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    voice_tags: Optional[List[str]] = None
+
+
+class RestockRequest(BaseModel):
+    """Restock a product."""
+    quantity: int
+
+
+class OrderStatusUpdate(BaseModel):
+    """Update order status."""
+    status: str  # "pending", "paid", "fulfilled"
+
+
+# In-memory orders store (for demo - normally would be in Supabase)
+ORDERS_STORE = {}
+
+
+@router.put("/products/{product_id}")
+async def update_product(product_id: str, updates: ProductUpdate):
+    """Update an existing product."""
+    # Find product in inventory
+    products = inventory_manager.list_products()
+    product_found = None
+    product_index = None
+    
+    for i, p in enumerate(products):
+        if str(p.get('id')) == product_id:
+            product_found = p
+            product_index = i
+            break
+    
+    if not product_found:
+        raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
+    
+    # Update fields that were provided
+    if updates.name is not None:
+        product_found['name'] = updates.name
+    if updates.price_ngn is not None:
+        product_found['price_ngn'] = updates.price_ngn
+    if updates.stock_level is not None:
+        product_found['stock_level'] = updates.stock_level
+    if updates.description is not None:
+        product_found['description'] = updates.description
+    if updates.category is not None:
+        product_found['category'] = updates.category
+    if updates.voice_tags is not None:
+        product_found['voice_tags'] = updates.voice_tags
+    
+    return {
+        "status": "success",
+        "message": f"Product '{product_found['name']}' updated",
+        "product": product_found
+    }
+
+
+@router.post("/products/{product_id}/restock")
+async def restock_product(product_id: str, restock: RestockRequest):
+    """Add stock to a product."""
+    if restock.quantity <= 0:
+        raise HTTPException(status_code=400, detail="Quantity must be positive")
+    
+    # Find product
+    products = inventory_manager.list_products()
+    product_found = None
+    
+    for p in products:
+        if str(p.get('id')) == product_id:
+            product_found = p
+            break
+    
+    if not product_found:
+        raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
+    
+    # Update stock using the inventory manager method
+    old_stock = product_found.get('stock_level', 0)
+    inventory_manager.update_stock(product_id, restock.quantity)
+    new_stock = old_stock + restock.quantity
+    
+    return {
+        "status": "success",
+        "message": f"Added {restock.quantity} units to {product_found['name']}",
+        "new_stock_level": new_stock
+    }
+
+
+@router.put("/orders/{order_id}/status")
+async def update_order_status(order_id: str, update: OrderStatusUpdate):
+    """Update order status."""
+    valid_statuses = ["pending", "paid", "fulfilled"]
+    if update.status.lower() not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+    
+    # For demo purposes, we'll just return success
+    # In production, this would update Supabase
+    ORDERS_STORE[order_id] = update.status.lower()
+    
+    return {
+        "status": "success",
+        "message": f"Order {order_id} marked as {update.status}",
+        "order": {
+            "id": order_id,
+            "status": update.status.lower()
+        }
+    }
+
+
+
+@router.post("/sales/manual")
+async def log_manual_sale(sale: ManualSale):
+    """Log a sale made outside of KOFA (walk-in, Instagram DM, etc.)."""
+    sale_record = {
+        "id": f"sale-{uuid.uuid4().hex[:8]}",
+        "product_name": sale.product_name,
+        "quantity": sale.quantity,
+        "amount_ngn": sale.amount_ngn,
+        "channel": sale.channel,
+        "notes": sale.notes,
+        "source": "manual",
+        "created_at": __import__('datetime').datetime.now().isoformat()
+    }
+    
+    # In production, save to Supabase
+    return {
+        "status": "success",
+        "message": f"Sale of {sale.quantity}x {sale.product_name} logged from {sale.channel}",
+        "sale": sale_record
+    }
 
 # Include routers
 app.include_router(router)

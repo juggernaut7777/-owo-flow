@@ -1,4 +1,4 @@
-# owo_flow/chatbot/routers/expenses.py
+# kofa/chatbot/routers/expenses.py
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List

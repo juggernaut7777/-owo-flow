@@ -157,18 +157,32 @@ class InventoryManager:
             payment_ref=data.get("payment_ref")
         )
 
-    def add_product(self, name: str, stock: int, price_ngn: float, price_usd: float = 0.0) -> dict:
-        """Adds a new product to inventory."""
+    def add_product(self, name_or_dict, stock: int = 0, price_ngn: float = 0.0, price_usd: float = 0.0) -> dict:
+        """Adds a new product to inventory. Accepts either a dict or positional args."""
         import uuid
-        product = {
-            "id": f"prod-{str(uuid.uuid4())[:8]}",
-            "name": name,
-            "stock_level": stock,
-            "price_ngn": price_ngn,
-            "voice_tags": [name.lower()],
-            "description": "",
-            "category": ""
-        }
+        
+        # Handle dict input (from KOFA 2.0 API)
+        if isinstance(name_or_dict, dict):
+            product = {
+                "id": name_or_dict.get("id", f"prod-{str(uuid.uuid4())[:8]}"),
+                "name": name_or_dict.get("name", "Unnamed Product"),
+                "stock_level": name_or_dict.get("stock_level", 0),
+                "price_ngn": name_or_dict.get("price_ngn", 0.0),
+                "voice_tags": name_or_dict.get("voice_tags", [name_or_dict.get("name", "").lower()]),
+                "description": name_or_dict.get("description", ""),
+                "category": name_or_dict.get("category", "")
+            }
+        else:
+            # Original positional args
+            product = {
+                "id": f"prod-{str(uuid.uuid4())[:8]}",
+                "name": name_or_dict,
+                "stock_level": stock,
+                "price_ngn": price_ngn,
+                "voice_tags": [name_or_dict.lower()],
+                "description": "",
+                "category": ""
+            }
         
         # Use mock data if Supabase unavailable
         if self._use_mock or self.supabase is None:
@@ -176,7 +190,7 @@ class InventoryManager:
             return product
         
         data = self.supabase.table("products").insert(product).execute()
-        return data.data[0] if data.data else {}
+        return data.data[0] if data.data else product
 
     def search_product(self, query: str) -> Optional[Product]:
         """

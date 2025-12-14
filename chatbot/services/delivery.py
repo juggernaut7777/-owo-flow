@@ -1,4 +1,4 @@
-# owo_flow/chatbot/services/delivery.py
+# kofa/chatbot/services/delivery.py
 """
 Delivery Integration Service for Nigerian Market
 Supports: GIG Logistics, Kwik, Sendbox (mock implementation)

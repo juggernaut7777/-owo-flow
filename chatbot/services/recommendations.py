@@ -1,4 +1,4 @@
-# owo_flow/chatbot/services/recommendations.py
+# kofa/chatbot/services/recommendations.py
 """
 Product Recommendation Engine for Nigerian Market
 Provides "Customers who bought X also bought Y" functionality.

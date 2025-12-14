@@ -1,4 +1,4 @@
-# owo_flow/chatbot/services/analytics.py
+# kofa/chatbot/services/analytics.py
 """
 Sales Analytics Service for Nigerian SME Dashboard
 Provides revenue tracking, bestsellers, and customer insights.

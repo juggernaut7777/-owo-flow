@@ -11,6 +11,7 @@ import {
     ActivityIndicator,
 } from 'react-native';
 import Animated, { FadeInUp, FadeInDown, SlideInRight, SlideInLeft } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, shadows, borderRadius, spacing } from '@/constants';
 import { sendMessage, ChatMessage, formatNaira } from '@/lib/api';
 
@@ -23,7 +24,7 @@ export default function ChatScreen() {
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
             id: '1',
-            text: 'Wetin dey happen! 🎉 Welcome to Owo Flow!\n\nI go help you find the beta products for the best price.\n\nWetin you dey find today?',
+            text: 'Hello! 👋 Welcome to KOFA!\n\nI can help you check product availability, prices, and make purchases.\n\nWhat are you looking for today?',
             isUser: false,
             timestamp: new Date(),
         },
@@ -99,9 +100,12 @@ export default function ChatScreen() {
             ]}
         >
             {!item.isUser && (
-                <View style={styles.avatar}>
+                <LinearGradient
+                    colors={['#2BAFF2', '#1F57F5']}
+                    style={styles.avatar}
+                >
                     <Text style={styles.avatarText}>🤖</Text>
-                </View>
+                </LinearGradient>
             )}
             <View
                 style={[
@@ -109,28 +113,50 @@ export default function ChatScreen() {
                     item.isUser ? styles.userBubble : styles.botBubble,
                 ]}
             >
-                <Text style={[styles.messageText, item.isUser && styles.userMessageText]}>
-                    {item.text}
-                </Text>
-
-                {item.product && (
-                    <View style={styles.productCard}>
-                        <Text style={styles.productName}>{item.product.name}</Text>
-                        <Text style={styles.productPrice}>
-                            {formatNaira(item.product.price_ngn)}
+                {item.isUser ? (
+                    <LinearGradient
+                        colors={['#2BAFF2', '#1F57F5']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.userBubbleGradient}
+                    >
+                        <Text style={styles.userMessageText}>{item.text}</Text>
+                        <Text style={styles.timestampUser}>
+                            {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Text>
-                    </View>
-                )}
+                    </LinearGradient>
+                ) : (
+                    <>
+                        <Text style={styles.messageText}>{item.text}</Text>
 
-                {item.paymentLink && (
-                    <TouchableOpacity style={styles.payButton}>
-                        <Text style={styles.payButtonText}>💳 Pay Now</Text>
-                    </TouchableOpacity>
-                )}
+                        {item.product && (
+                            <View style={styles.productCard}>
+                                <Text style={styles.productName}>{item.product.name}</Text>
+                                <View style={styles.priceRow}>
+                                    <Text style={styles.currencySymbol}>₦</Text>
+                                    <Text style={styles.productPrice}>
+                                        {item.product.price_ngn.toLocaleString()}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
 
-                <Text style={styles.timestamp}>
-                    {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Text>
+                        {item.paymentLink && (
+                            <TouchableOpacity style={styles.payButton}>
+                                <LinearGradient
+                                    colors={['#00DFFF', '#2BAFF2']}
+                                    style={styles.payButtonGradient}
+                                >
+                                    <Text style={styles.payButtonText}>💳 Pay Now</Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        )}
+
+                        <Text style={styles.timestamp}>
+                            {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                    </>
+                )}
             </View>
         </AnimatedView>
     );
@@ -150,17 +176,42 @@ export default function ChatScreen() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
+            {/* Background */}
+            <LinearGradient
+                colors={['#05090E', '#0D1117', '#05090E']}
+                style={StyleSheet.absoluteFillObject}
+            />
+
+            {/* Accent Orbs */}
+            <View style={styles.orbContainer}>
+                <LinearGradient
+                    colors={['rgba(43, 175, 242, 0.2)', 'transparent']}
+                    style={[styles.orb, styles.orbGreen]}
+                />
+            </View>
+
             {/* Header */}
             <AnimatedView entering={FadeInDown.springify()} style={styles.header}>
-                <View style={styles.headerAvatar}>
-                    <Text style={styles.headerAvatarText}>🤖</Text>
-                </View>
-                <View style={styles.headerInfo}>
-                    <Text style={styles.headerTitle}>Bot Tester</Text>
-                    <Text style={styles.headerStatus}>
-                        {isLoading ? 'Typing...' : 'Test how your bot responds'}
-                    </Text>
-                </View>
+                <LinearGradient
+                    colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0.02)']}
+                    style={styles.headerGradient}
+                >
+                    <LinearGradient
+                        colors={['#2BAFF2', '#1F57F5']}
+                        style={styles.headerAvatar}
+                    >
+                        <Text style={styles.headerAvatarText}>🤖</Text>
+                    </LinearGradient>
+                    <View style={styles.headerInfo}>
+                        <Text style={styles.headerTitle}>KOFA Bot</Text>
+                        <View style={styles.statusRow}>
+                            <View style={[styles.statusDot, isLoading && styles.statusDotTyping]} />
+                            <Text style={styles.headerStatus}>
+                                {isLoading ? 'Typing...' : 'Online • Test your bot'}
+                            </Text>
+                        </View>
+                    </View>
+                </LinearGradient>
             </AnimatedView>
 
             {/* Messages */}
@@ -175,27 +226,37 @@ export default function ChatScreen() {
 
             {/* Input */}
             <AnimatedView entering={FadeInUp.springify()} style={styles.inputContainer}>
-                <TextInput
-                    style={styles.input}
-                    placeholder="Type your message..."
-                    placeholderTextColor={Colors.text.muted}
-                    value={inputText}
-                    onChangeText={setInputText}
-                    onSubmitEditing={handleSend}
-                    returnKeyType="send"
-                    editable={!isLoading}
-                />
-                <TouchableOpacity
-                    style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
-                    onPress={handleSend}
-                    disabled={!inputText.trim() || isLoading}
+                <LinearGradient
+                    colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.04)']}
+                    style={styles.inputGradient}
                 >
-                    {isLoading ? (
-                        <ActivityIndicator color={Colors.text.inverted} size="small" />
-                    ) : (
-                        <Text style={styles.sendButtonText}>➤</Text>
-                    )}
-                </TouchableOpacity>
+                    <TextInput
+                        style={styles.input}
+                        placeholder="Type a message..."
+                        placeholderTextColor="rgba(255,255,255,0.4)"
+                        value={inputText}
+                        onChangeText={setInputText}
+                        onSubmitEditing={handleSend}
+                        returnKeyType="send"
+                        editable={!isLoading}
+                    />
+                    <TouchableOpacity
+                        style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
+                        onPress={handleSend}
+                        disabled={!inputText.trim() || isLoading}
+                    >
+                        {isLoading ? (
+                            <ActivityIndicator color="#000" size="small" />
+                        ) : (
+                            <LinearGradient
+                                colors={inputText.trim() ? ['#2BAFF2', '#1F57F5'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                                style={styles.sendButtonGradient}
+                            >
+                                <Text style={[styles.sendButtonText, !inputText.trim() && styles.sendButtonTextDisabled]}>➤</Text>
+                            </LinearGradient>
+                        )}
+                    </TouchableOpacity>
+                </LinearGradient>
             </AnimatedView>
         </KeyboardAvoidingView>
     );
@@ -204,50 +265,81 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: Colors.dark.DEFAULT,
+        backgroundColor: '#05090E',
+    },
+    orbContainer: {
+        ...StyleSheet.absoluteFillObject,
+        overflow: 'hidden',
+    },
+    orb: {
+        position: 'absolute',
+        width: 300,
+        height: 300,
+        borderRadius: 150,
+    },
+    orbGreen: {
+        top: 50,
+        right: -150,
     },
     header: {
+        paddingHorizontal: 20,
+        paddingTop: 60,
+        paddingBottom: 12,
+    },
+    headerGradient: {
         flexDirection: 'row',
         alignItems: 'center',
-        paddingHorizontal: spacing[4],
-        paddingTop: spacing[12],
-        paddingBottom: spacing[3],
-        backgroundColor: Colors.dark.card,
-        ...shadows.md,
+        padding: 14,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
     },
     headerAvatar: {
         width: 48,
         height: 48,
-        backgroundColor: Colors.primary.DEFAULT,
-        borderRadius: borderRadius.full,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: spacing[3],
     },
     headerAvatarText: {
         fontSize: 24,
     },
     headerInfo: {
         flex: 1,
+        marginLeft: 14,
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
-        color: Colors.text.inverted,
+        fontWeight: '700',
+        color: '#FFFFFF',
+    },
+    statusRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 4,
+    },
+    statusDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: '#2BAFF2',
+        marginRight: 6,
+    },
+    statusDotTyping: {
+        backgroundColor: '#00DFFF',
     },
     headerStatus: {
         fontSize: 12,
-        color: Colors.text.muted,
-        marginTop: 2,
+        color: 'rgba(255,255,255,0.5)',
     },
     messageList: {
-        paddingHorizontal: spacing[4],
-        paddingTop: spacing[4],
-        paddingBottom: spacing[4],
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 16,
     },
     messageContainer: {
         flexDirection: 'row',
-        marginBottom: spacing[4],
+        marginBottom: 16,
         alignItems: 'flex-end',
     },
     userMessageContainer: {
@@ -259,103 +351,137 @@ const styles = StyleSheet.create({
     avatar: {
         width: 32,
         height: 32,
-        backgroundColor: Colors.dark.muted,
-        borderRadius: borderRadius.full,
+        borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: spacing[2],
+        marginRight: 10,
     },
     avatarText: {
-        fontSize: 16,
+        fontSize: 14,
     },
     messageBubble: {
-        maxWidth: '75%',
-        padding: spacing[3],
-        borderRadius: borderRadius.xl,
+        maxWidth: '78%',
+        borderRadius: 20,
+        overflow: 'hidden',
     },
     userBubble: {
-        backgroundColor: Colors.primary.DEFAULT,
-        borderBottomRightRadius: spacing[1],
+        borderBottomRightRadius: 6,
+    },
+    userBubbleGradient: {
+        padding: 14,
     },
     botBubble: {
-        backgroundColor: Colors.dark.card,
-        borderBottomLeftRadius: spacing[1],
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        padding: 14,
+        borderBottomLeftRadius: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.06)',
     },
     messageText: {
         fontSize: 15,
         lineHeight: 22,
-        color: Colors.text.inverted,
+        color: '#FFFFFF',
     },
     userMessageText: {
-        color: Colors.text.inverted,
+        fontSize: 15,
+        lineHeight: 22,
+        color: '#000',
+        fontWeight: '500',
     },
     timestamp: {
         fontSize: 10,
-        color: Colors.text.muted,
-        marginTop: spacing[1],
+        color: 'rgba(255,255,255,0.4)',
+        marginTop: 8,
+        textAlign: 'right',
+    },
+    timestampUser: {
+        fontSize: 10,
+        color: 'rgba(0,0,0,0.5)',
+        marginTop: 8,
         textAlign: 'right',
     },
     productCard: {
-        backgroundColor: Colors.dark.muted,
-        padding: spacing[3],
-        borderRadius: borderRadius.lg,
-        marginTop: spacing[2],
+        backgroundColor: 'rgba(43, 175, 242, 0.15)',
+        padding: 12,
+        borderRadius: 12,
+        marginTop: 10,
+        borderWidth: 1,
+        borderColor: 'rgba(43, 175, 242, 0.3)',
     },
     productName: {
         fontSize: 14,
         fontWeight: '600',
-        color: Colors.text.inverted,
+        color: '#FFFFFF',
+    },
+    priceRow: {
+        flexDirection: 'row',
+        alignItems: 'baseline',
+        marginTop: 4,
+    },
+    currencySymbol: {
+        fontSize: 12,
+        color: '#2BAFF2',
+        fontWeight: '600',
+        marginRight: 2,
     },
     productPrice: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: Colors.naira.text,
-        marginTop: spacing[1],
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#2BAFF2',
     },
     payButton: {
-        backgroundColor: Colors.accent.DEFAULT,
-        padding: spacing[3],
-        borderRadius: borderRadius.lg,
-        marginTop: spacing[2],
+        borderRadius: 12,
+        overflow: 'hidden',
+        marginTop: 10,
+    },
+    payButtonGradient: {
+        padding: 12,
         alignItems: 'center',
     },
     payButtonText: {
         fontSize: 14,
-        fontWeight: 'bold',
-        color: Colors.dark.DEFAULT,
+        fontWeight: '700',
+        color: '#000',
     },
     inputContainer: {
+        paddingHorizontal: 20,
+        paddingBottom: 90,
+        paddingTop: 10,
+    },
+    inputGradient: {
         flexDirection: 'row',
-        padding: spacing[4],
-        backgroundColor: Colors.dark.card,
-        borderTopWidth: 1,
-        borderTopColor: Colors.dark.muted,
+        alignItems: 'center',
+        padding: 6,
+        borderRadius: 28,
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.08)',
     },
     input: {
         flex: 1,
-        backgroundColor: Colors.dark.muted,
-        borderRadius: borderRadius['2xl'],
-        paddingHorizontal: spacing[4],
-        paddingVertical: spacing[3],
+        paddingHorizontal: 18,
+        paddingVertical: 12,
         fontSize: 16,
-        color: Colors.text.inverted,
-        marginRight: spacing[3],
+        color: '#FFFFFF',
     },
     sendButton: {
         width: 48,
         height: 48,
-        backgroundColor: Colors.primary.DEFAULT,
-        borderRadius: borderRadius.full,
+        borderRadius: 24,
+        overflow: 'hidden',
+    },
+    sendButtonGradient: {
+        flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        ...shadows.primary,
     },
     sendButtonDisabled: {
-        backgroundColor: Colors.dark.muted,
-        ...shadows.sm,
+        opacity: 0.6,
     },
     sendButtonText: {
         fontSize: 20,
-        color: Colors.text.inverted,
+        color: '#000',
+    },
+    sendButtonTextDisabled: {
+        color: 'rgba(255,255,255,0.4)',
     },
 });

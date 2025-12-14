@@ -1,7 +1,7 @@
 services:
   # FastAPI Backend
   - type: web
-    name: owoflow-api
+    name: kofa-api
     runtime: docker
     plan: free
     healthCheckPath: /health
@@ -17,7 +17,7 @@ services:
 
   # Static Landing Page
   - type: static
-    name: owoflow-landing
+    name: kofa-landing
     staticPublishPath: ./landing
     headers:
       - path: /*

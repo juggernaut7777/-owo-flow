@@ -1,7 +1,7 @@
-# Nigerian English Implementation Guide for Owo Flow
+# Nigerian English Implementation Guide for KOFA
 
 ## 🎯 Overview
-This guide explains how the Owo Flow chatbot handles **Nigerian English and Pidgin** to work authentically in the Lagos market.
+This guide explains how the KOFA chatbot handles **Nigerian English and Pidgin** to work authentically in the Lagos market.
 
 ---
 
@@ -63,7 +63,7 @@ Nigerian: "Make I buy am"
 Nigerian: "Abeg sell me"
 ```
 
-[View full keyword list](file:///C:/Users/USER/.gemini/antigravity/scratch/owo_flow/chatbot/intent.py#L20-L43)
+[View full keyword list](file:///C:/Users/USER/.gemini/antigravity/scratch/kofa/chatbot/intent.py#L20-L43)
 
 ---
 
@@ -99,7 +99,7 @@ You wan buy? Just talk 'Yes' or 'I wan buy'!"
 
 ### Switching Styles
 
-Edit [`chatbot/main.py`](file:///C:/Users/USER/.gemini/antigravity/scratch/owo_flow/chatbot/main.py#L21-L24):
+Edit [`chatbot/main.py`](file:///C:/Users/USER/.gemini/antigravity/scratch/kofa/chatbot/main.py#L21-L24):
 
 ```python
 # For Corporate Style:
@@ -253,7 +253,7 @@ graph TD
 - ❌ Old: "Abeg you get canvas?" → GREETING (wrong!)
 - ✅ New: "Abeg you get canvas?" → AVAILABILITY_CHECK (correct!)
 
-[View implementation](file:///C:/Users/USER/.gemini/antigravity/scratch/owo_flow/chatbot/intent.py#L54-L96)
+[View implementation](file:///C:/Users/USER/.gemini/antigravity/scratch/kofa/chatbot/intent.py#L54-L96)
 
 ---
 
@@ -348,11 +348,11 @@ python manual_test.py
 
 | File | Purpose |
 |------|---------|
-| [schema.sql](file:///C:/Users/USER/.gemini/antigravity/scratch/owo_flow/supabase/schema.sql) | Nigerian-optimized product data |
-| [intent.py](file:///C:/Users/USER/.gemini/antigravity/scratch/owo_flow/chatbot/intent.py) | Nigerian English keywords |
-| [response_formatter.py](file:///C:/Users/USER/.gemini/antigravity/scratch/owo_flow/chatbot/response_formatter.py) | Dual response styles |
-| [main.py](file:///C:/Users/USER/.gemini/antigravity/scratch/owo_flow/chatbot/main.py#L21-L24) | Style configuration |
-| [nigerian_conversation_demo.py](file:///C:/Users/USER/.gemini/antigravity/scratch/owo_flow/nigerian_conversation_demo.py) | Test suite |
+| [schema.sql](file:///C:/Users/USER/.gemini/antigravity/scratch/kofa/supabase/schema.sql) | Nigerian-optimized product data |
+| [intent.py](file:///C:/Users/USER/.gemini/antigravity/scratch/kofa/chatbot/intent.py) | Nigerian English keywords |
+| [response_formatter.py](file:///C:/Users/USER/.gemini/antigravity/scratch/kofa/chatbot/response_formatter.py) | Dual response styles |
+| [main.py](file:///C:/Users/USER/.gemini/antigravity/scratch/kofa/chatbot/main.py#L21-L24) | Style configuration |
+| [nigerian_conversation_demo.py](file:///C:/Users/USER/.gemini/antigravity/scratch/kofa/nigerian_conversation_demo.py) | Test suite |
 
 ---
 

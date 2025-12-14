@@ -1,4 +1,4 @@
-# owo_flow/chatbot/routers/notifications.py
+# kofa/chatbot/routers/notifications.py
 """
 Notifications API Router
 WhatsApp notification management.

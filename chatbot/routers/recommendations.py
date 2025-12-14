@@ -1,4 +1,4 @@
-# owo_flow/chatbot/routers/recommendations.py
+# kofa/chatbot/routers/recommendations.py
 """
 Recommendations API Router
 Product recommendations and personalization.

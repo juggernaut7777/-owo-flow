@@ -7,29 +7,29 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Nigerian-inspired palette
+        // Premium Blue Theme - matching Theme.ts
         primary: {
-          DEFAULT: '#00A859',  // Nigerian green
-          light: '#00C96A',
-          dark: '#008948',
+          DEFAULT: '#2BAFF2',  // vibrant sky blue
+          light: '#00DFFF',    // electric cyan
+          dark: '#1F57F5',     // deep blue
         },
         secondary: {
           DEFAULT: '#FFFFFF',
-          muted: '#F5F5F5',
+          muted: '#8B949E',
         },
         accent: {
-          DEFAULT: '#FFD700',  // Gold accent
-          light: '#FFE44D',
+          DEFAULT: '#00DFFF',  // Electric cyan accent
+          light: '#2BAFF2',
         },
         dark: {
-          DEFAULT: '#1A1A2E',  // Deep background
-          card: '#252542',
-          muted: '#3D3D5C',
+          DEFAULT: '#05090E',  // Deep background
+          card: '#0D1117',
+          surface: '#161B22',
         },
-        success: '#00C96A',
-        warning: '#FFB800',
-        error: '#FF4D4D',
-        naira: '#00A859',  // For price displays
+        success: '#22C55E',
+        warning: '#F59E0B',
+        error: '#EF4444',
+        naira: '#2BAFF2',  // For price displays (blue theme)
       },
       fontFamily: {
         sans: ['Inter', 'System'],
@@ -46,7 +46,7 @@ module.exports = {
       },
       boxShadow: {
         'card': '0 4px 20px rgba(0, 0, 0, 0.15)',
-        'button': '0 4px 14px rgba(0, 168, 89, 0.4)',
+        'button': '0 4px 14px rgba(43, 175, 242, 0.4)',
       },
     },
   },

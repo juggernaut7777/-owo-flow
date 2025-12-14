@@ -1,4 +1,4 @@
-# owo_flow/chatbot/services/notifications.py
+# kofa/chatbot/services/notifications.py
 """
 WhatsApp Notification Service for Nigerian Market
 Provides templated notifications for orders, payments, and alerts.

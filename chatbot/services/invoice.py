@@ -1,4 +1,4 @@
-# owo_flow/chatbot/services/invoice.py
+# kofa/chatbot/services/invoice.py
 """
 Invoice/Receipt Generator for Nigerian Market
 Generates PDF receipts with VAT (7.5%) for WhatsApp sharing.

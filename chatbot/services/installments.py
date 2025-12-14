@@ -1,4 +1,4 @@
-# owo_flow/chatbot/services/installments.py
+# kofa/chatbot/services/installments.py
 """
 Installment/BNPL Service for Nigerian Market
 "Pay Small-Small" - Buy Now Pay Later integration.
