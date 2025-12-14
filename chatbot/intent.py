@@ -78,7 +78,7 @@ class IntentRecognizer:
         
         # Check purchase intent (most specific action) - but only for clear purchase signals
         # Words that indicate actual purchase, not inquiry about purchase
-        clear_purchase_signals = ['yes', 'okay', 'ok', 'sure', 'buy now', 'purchase it', 
+        clear_purchase_signals = ['yes', 'okay', 'ok', 'sure', 'buy', 'buy now', 'purchase', 'purchase it', 
                                   'i\'ll take it', 'proceed', 'send link', 'make i pay', 
                                   'i go pay', 'i dey buy', 'gimme', 'abeg sell me']
         if any(signal in message_lower for signal in clear_purchase_signals):
