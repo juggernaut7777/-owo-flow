@@ -9,7 +9,6 @@ class Intent(str, Enum):
     PRICE_INQUIRY = "price_inquiry"
     AVAILABILITY_CHECK = "availability_check"
     PURCHASE = "purchase"
-    PAYMENT_CONFIRMATION = "payment_confirmation"
     GREETING = "greeting"
     HELP = "help"
     UNKNOWN = "unknown"
@@ -33,11 +32,6 @@ class IntentRecognizer:
         "buy", "purchase", "order", "get", "want", "need", "yes", "okay", "ok", "sure",
         "I go buy", "I wan buy", "make I buy", "abeg sell me", "I dey buy",
         "send link", "gimme", "make I pay", "I go pay", "proceed"
-    ]
-    PAYMENT_CONFIRMATION_KEYWORDS = [
-        "paid", "i paid", "i've paid", "done", "sent", "transferred", "i don pay",
-        "i don transfer", "money don go", "e don go", "i send am", "i sent it",
-        "payment done", "i have paid", "check your account", "check account"
     ]
     GREETING_KEYWORDS = [
         "hello", "hi", "hey", "good morning", "good afternoon", "good evening",
@@ -73,14 +67,6 @@ class IntentRecognizer:
         product_indicators = ['canvas', 'shoe', 'shirt', 'bag', 'jeans', 'charger', 
                              'trouser', 'joggers', 'polo', 'packing', 'sneakers']
         has_product_mention = any(word in message_lower for word in product_indicators)
-        
-        # Check for payment confirmation FIRST (highest priority after a purchase)
-        # User saying they've paid for an order
-        payment_signals = ['paid', 'i paid', "i've paid", 'transferred', 'i don pay', 
-                          'i don transfer', 'money don go', 'i send am', 'i sent',
-                          'payment done', 'i have paid', 'check your account']
-        if any(signal in message_lower for signal in payment_signals):
-            return Intent.PAYMENT_CONFIRMATION
         
         # Check for help requests early - especially "how do/how to" questions
         # These should take priority over purchase intent
@@ -185,48 +171,3 @@ class IntentRecognizer:
             return " ".join(product_words)
         
         return None
-    
-    def extract_quantity(self, message: str) -> int:
-        """
-        Extract quantity from message like 'I want 3', 'give me 2', etc.
-        
-        Args:
-            message: The customer's message
-            
-        Returns:
-            Quantity (defaults to 1 if not specified)
-        """
-        import re
-        message_lower = message.lower()
-        
-        # Number words to digits
-        word_to_num = {
-            'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
-            'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-            'a': 1, 'an': 1
-        }
-        
-        # Check for word numbers first
-        for word, num in word_to_num.items():
-            if f' {word} ' in f' {message_lower} ':
-                return num
-        
-        # Check for digit patterns
-        # Pattern: "number" followed by optional "of" or space
-        patterns = [
-            r'(\d+)\s*(?:of|x|pieces?|units?|pcs?)?',
-            r'i\s*(?:want|need|dey)\s*(\d+)',
-            r'give\s*me\s*(\d+)',
-            r'buy\s*(\d+)',
-            r'(\d+)\s*(?:pieces?|pcs?|units?)',
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, message_lower)
-            if match:
-                qty = int(match.group(1))
-                if 1 <= qty <= 100:  # Reasonable range
-                    return qty
-        
-        return 1  # Default to 1
-

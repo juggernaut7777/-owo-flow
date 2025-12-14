@@ -108,63 +108,6 @@ class ResponseFormatter:
                 f"Pay sharp make you secure am!"
             )
     
-    def format_bank_payment_details(
-        self,
-        product_name: str,
-        quantity: int,
-        unit_price_formatted: str,
-        total_formatted: str,
-        bank_name: str,
-        account_number: str,
-        account_name: str,
-        order_id: str
-    ) -> str:
-        """Format bank transfer payment details."""
-        qty_text = f"{quantity}x " if quantity > 1 else ""
-        
-        if self.style == ResponseStyle.CORPORATE:
-            return (
-                f"✅ Order Confirmed!\n\n"
-                f"📦 **{qty_text}{product_name}**\n"
-                f"💰 Total: {total_formatted}\n"
-                f"🔖 Order ID: {order_id}\n\n"
-                f"---\n"
-                f"**Bank Transfer Details:**\n"
-                f"🏦 Bank: {bank_name}\n"
-                f"📝 Account: {account_number}\n"
-                f"👤 Name: {account_name}\n\n"
-                f"After payment, reply **'Paid'** or send proof to confirm.\n"
-                f"⏰ Please pay within 30 minutes."
-            )
-        else:  # STREET
-            return (
-                f"Sharp! 🎉 Your order don land!\n\n"
-                f"📦 **{qty_text}{product_name}**\n"
-                f"💰 Total: {total_formatted}\n"
-                f"🔖 Order ID: {order_id}\n\n"
-                f"---\n"
-                f"**Bank Details for Transfer:**\n"
-                f"🏦 Bank: {bank_name}\n"
-                f"📝 Account: {account_number}\n"
-                f"👤 Name: {account_name}\n\n"
-                f"After you pay, just talk **'I don pay'** or send screenshot.\n"
-                f"⏰ Abeg pay within 30 minutes."
-            )
-    
-    def format_no_bank_account(self) -> str:
-        """Format message when vendor has no bank account configured."""
-        if self.style == ResponseStyle.CORPORATE:
-            return (
-                "Sorry, we're still setting up our payment system. "
-                "Please contact us directly to complete your purchase."
-            )
-        else:
-            return (
-                "Omo sorry o, our payment details never ready. "
-                "Abeg contact us directly make we sort you out."
-            )
-
-    
     def format_purchase_no_context(self) -> str:
         """Format purchase without context message."""
         if self.style == ResponseStyle.CORPORATE:

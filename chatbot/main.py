@@ -7,7 +7,6 @@ from .inventory import InventoryManager
 from .intent import IntentRecognizer, Intent
 from .payment import PaymentManager
 from .response_formatter import ResponseFormatter, ResponseStyle
-from .conversation import conversation_manager
 from .routers import (
     expenses, delivery, analytics, invoice, 
     recommendations, notifications, installments, profit_loss, sales_channels, whatsapp
@@ -36,12 +35,6 @@ VENDOR_SETTINGS: dict = {
     },
     "payment_method": "bank_transfer",  # "bank_transfer", "paystack", "flutterwave"
 }
-
-# Customer purchase history for returning customer recognition
-CUSTOMER_HISTORY: dict = {}  # {phone: [{"product_name": ..., "date": ..., "amount": ...}]}
-
-# Low stock threshold for alerts
-LOW_STOCK_THRESHOLD = 5
 
 def safe_order_id(user_id: str, prod_id: str) -> str:
     """Generate a safe order ID from user and product IDs."""
@@ -167,69 +160,55 @@ async def create_order(request: OrderRequest):
 async def get_orders(status: Optional[str] = None):
     """
     Get all orders for merchant dashboard.
-    Returns chatbot-created orders from ORDERS_STORE + mock demo orders.
+    For MVP, returns mock orders. In production, query Supabase.
     """
+    # In production, this would query Supabase:
+    # orders = supabase.table("orders").select("*").execute()
+    
+    # For MVP demo, return mock orders
     import datetime
     
-    # Get real orders from ORDERS_STORE (created by chatbot)
-    real_orders = []
-    for order_id, order in ORDERS_STORE.items():
-        # Convert to API format
-        real_orders.append({
-            "id": order.get("id", order_id),
-            "customer_phone": order.get("customer_phone", "Unknown"),
+    mock_orders = [
+        {
+            "id": "order-001",
+            "customer_phone": "+2348012345678",
             "items": [
-                {
-                    "product_id": order.get("product_id", ""),
-                    "product_name": order.get("product_name", "Product"),
-                    "quantity": order.get("quantity", 1),
-                    "price": order.get("unit_price", 0)
-                }
+                {"product_id": "1", "product_name": "Nike Air Max Red", "quantity": 1, "price": 45000}
             ],
-            "total_amount": order.get("total_amount", 0),
-            "status": order.get("status", "pending"),
-            "payment_ref": order.get("payment_ref"),
-            "created_at": order.get("created_at", datetime.datetime.now().isoformat()),
-            "source": "chatbot"  # Mark as chatbot order
-        })
-    
-    # Add mock orders for demo if no real orders exist
-    if not real_orders:
-        mock_orders = [
-            {
-                "id": "demo-001",
-                "customer_phone": "+2348012345678",
-                "items": [
-                    {"product_id": "1", "product_name": "Nike Air Max Red", "quantity": 1, "price": 45000}
-                ],
-                "total_amount": 45000,
-                "status": "pending",
-                "created_at": (datetime.datetime.now() - datetime.timedelta(minutes=30)).isoformat(),
-                "source": "demo"
-            },
-            {
-                "id": "demo-002",
-                "customer_phone": "+2349087654321",
-                "items": [
-                    {"product_id": "3", "product_name": "Men Formal Shirt White", "quantity": 2, "price": 15000}
-                ],
-                "total_amount": 30000,
-                "status": "paid",
-                "payment_ref": "PAY-ABC123",
-                "created_at": (datetime.datetime.now() - datetime.timedelta(hours=2)).isoformat(),
-                "source": "demo"
-            }
-        ]
-        real_orders = mock_orders
+            "total_amount": 45000,
+            "status": "pending",
+            "created_at": (datetime.datetime.now() - datetime.timedelta(minutes=30)).isoformat()
+        },
+        {
+            "id": "order-002",
+            "customer_phone": "+2349087654321",
+            "items": [
+                {"product_id": "3", "product_name": "Men Formal Shirt White", "quantity": 2, "price": 15000},
+                {"product_id": "6", "product_name": "Plain Round Neck T-Shirt", "quantity": 3, "price": 8000}
+            ],
+            "total_amount": 54000,
+            "status": "paid",
+            "payment_ref": "PAY-ABC123",
+            "created_at": (datetime.datetime.now() - datetime.timedelta(hours=2)).isoformat()
+        },
+        {
+            "id": "order-003",
+            "customer_phone": "+2348055551234",
+            "items": [
+                {"product_id": "5", "product_name": "Black Leather Bag", "quantity": 1, "price": 35000}
+            ],
+            "total_amount": 35000,
+            "status": "fulfilled",
+            "payment_ref": "PAY-XYZ789",
+            "created_at": (datetime.datetime.now() - datetime.timedelta(days=1)).isoformat()
+        }
+    ]
     
     # Filter by status if provided
     if status:
-        real_orders = [o for o in real_orders if o.get("status", "").lower() == status.lower()]
+        mock_orders = [o for o in mock_orders if o["status"].lower() == status.lower()]
     
-    # Sort by created_at descending (newest first)
-    real_orders.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-    
-    return real_orders
+    return mock_orders
 
 @router.post("/message")
 async def process_message(request: MessageRequest):
@@ -285,62 +264,23 @@ async def process_message(request: MessageRequest):
         # User said "buy", "yes", etc. after viewing a product
         product = state.current_product
         product_data = product
-        quantity = state.quantity if state.quantity > 0 else 1
-        unit_price = int(product["price_ngn"])
-        total_price = unit_price * quantity
-        price_fmt = payment_manager.format_naira(unit_price)
-        total_fmt = payment_manager.format_naira(total_price)
+        price_fmt = payment_manager.format_naira(product["price_ngn"])
         
-        if product["stock_level"] >= quantity:
-            # Generate order ID
+        if product["stock_level"] > 0:
             prod_id = str(product.get("id", ""))
-            order_id = safe_order_id(user_id, prod_id)
-            
-            # Get vendor's bank account
-            vendor_account = VENDOR_SETTINGS.get("payment_account", {})
-            
-            if vendor_account.get("account_number"):
-                # Create order record (store in memory for now, would go to Supabase)
-                order = {
-                    "id": order_id,
-                    "customer_phone": user_id,
-                    "product_id": prod_id,
-                    "product_name": product["name"],
-                    "quantity": quantity,
-                    "unit_price": unit_price,
-                    "total_amount": total_price,
-                    "status": "pending",
-                    "created_at": __import__('datetime').datetime.now().isoformat()
-                }
-                ORDERS_STORE[order_id] = order
-                state.set_pending_order(order_id)
-                
-                # Show bank transfer details
-                response_text = response_formatter.format_bank_payment_details(
-                    product_name=product["name"],
-                    quantity=quantity,
-                    unit_price_formatted=price_fmt,
-                    total_formatted=total_fmt,
-                    bank_name=vendor_account.get("bank_name", ""),
-                    account_number=vendor_account.get("account_number", ""),
-                    account_name=vendor_account.get("account_name", ""),
-                    order_id=order_id
+            link = payment_manager.generate_payment_link(
+                order_id=safe_order_id(user_id, prod_id),
+                amount_ngn=int(product["price_ngn"]),
+                customer_phone=user_id,
+                description=f"Purchase {product['name']}"
+            )
+            if link:
+                payment_link = link
+                response_text = response_formatter.format_payment_link(
+                    product['name'], link, price_fmt, 15
                 )
             else:
-                # No bank account configured - fallback to payment link
-                link = payment_manager.generate_payment_link(
-                    order_id=order_id,
-                    amount_ngn=total_price,
-                    customer_phone=user_id,
-                    description=f"Purchase {quantity}x {product['name']}"
-                )
-                if link:
-                    payment_link = link
-                    response_text = response_formatter.format_payment_link(
-                        product['name'], link, total_fmt, 15
-                    )
-                else:
-                    response_text = response_formatter.format_no_bank_account()
+                response_text = response_formatter.format_payment_link_failed()
         else:
             response_text = response_formatter.format_out_of_stock(product["name"])
         
@@ -349,61 +289,6 @@ async def process_message(request: MessageRequest):
             intent=intent.value,
             product=product_data,
             payment_link=payment_link
-        )
-    
-    # ========== STEP 2B: Check for payment confirmation ==========
-    if intent == Intent.PAYMENT_CONFIRMATION:
-        order = None
-        
-        # First, check for pending order in conversation state
-        if state.pending_order_id and state.pending_order_id in ORDERS_STORE:
-            order = ORDERS_STORE[state.pending_order_id]
-        else:
-            # Fallback: find any pending order for this user
-            for order_id, stored_order in ORDERS_STORE.items():
-                if stored_order.get("customer_phone") == user_id and stored_order.get("status") == "pending":
-                    order = stored_order
-                    break
-        
-        if order:
-            order["status"] = "paid"  # Update order status
-            
-            # Track customer purchase history for returning customer recognition
-            import datetime
-            customer_phone = order.get("customer_phone", user_id)
-            if customer_phone not in CUSTOMER_HISTORY:
-                CUSTOMER_HISTORY[customer_phone] = []
-            CUSTOMER_HISTORY[customer_phone].append({
-                "product_name": order.get("product_name", "Product"),
-                "quantity": order.get("quantity", 1),
-                "amount": order.get("total_amount", 0),
-                "date": datetime.datetime.now().isoformat(),
-                "order_id": order.get("id")
-            })
-            
-            response_text = (
-                f"🎉 Thank you for your payment!\n\n"
-                f"**Order {order['id']}** has been marked as PAID.\n"
-                f"📦 {order.get('quantity', 1)}x {order.get('product_name', 'Product')}\n"
-                f"💰 {payment_manager.format_naira(order.get('total_amount', 0))}\n\n"
-                f"The seller has been notified and will fulfill your order soon.\n"
-                f"Thank you for shopping with us! 🙏"
-            )
-            
-            # Clear pending order from state
-            state.pending_order_id = None
-            state.current_product = None
-        else:
-            response_text = (
-                "I don't see a pending order for you. "
-                "If you've made a payment, please share the order ID or proof of payment."
-            )
-        
-        return MessageResponse(
-            response=response_text,
-            intent=intent.value,
-            product=None,
-            payment_link=None
         )
     
     # ========== STEP 3: Handle standard intents ==========
@@ -709,14 +594,9 @@ async def update_order_status(order_id: str, update: OrderStatusUpdate):
     if update.status.lower() not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
     
-    # Check if order exists in ORDERS_STORE
-    if order_id in ORDERS_STORE:
-        # Update the status field of the order object, not replace the whole order
-        ORDERS_STORE[order_id]["status"] = update.status.lower()
-        order = ORDERS_STORE[order_id]
-    else:
-        # For orders not in ORDERS_STORE (demo/mock orders), just acknowledge
-        order = {"id": order_id, "status": update.status.lower()}
+    # For demo purposes, we'll just return success
+    # In production, this would update Supabase
+    ORDERS_STORE[order_id] = update.status.lower()
     
     return {
         "status": "success",
@@ -818,84 +698,6 @@ async def get_payment_account():
     return {
         "status": "success",
         "payment_account": account
-    }
-
-
-# ============== ALERTS & ANALYTICS ==============
-
-@router.get("/alerts/low-stock")
-async def get_low_stock_alerts():
-    """Get products that are running low on stock."""
-    products = inventory_manager.list_products()
-    low_stock_products = []
-    
-    for product in products:
-        stock = product.get("stock_level", 0)
-        if stock <= LOW_STOCK_THRESHOLD:
-            low_stock_products.append({
-                "id": product.get("id"),
-                "name": product.get("name"),
-                "stock_level": stock,
-                "status": "critical" if stock <= 2 else "warning"
-            })
-    
-    return {
-        "status": "success",
-        "count": len(low_stock_products),
-        "threshold": LOW_STOCK_THRESHOLD,
-        "products": low_stock_products
-    }
-
-
-@router.get("/analytics/sales-summary")
-async def get_sales_summary():
-    """Get sales summary from orders."""
-    import datetime
-    
-    # Calculate totals from ORDERS_STORE
-    total_revenue = 0
-    paid_orders = 0
-    pending_orders = 0
-    fulfilled_orders = 0
-    
-    for order_id, order in ORDERS_STORE.items():
-        status = order.get("status", "pending")
-        amount = order.get("total_amount", 0)
-        
-        if status == "paid":
-            paid_orders += 1
-            total_revenue += amount
-        elif status == "fulfilled":
-            fulfilled_orders += 1
-            total_revenue += amount
-        elif status == "pending":
-            pending_orders += 1
-    
-    return {
-        "status": "success",
-        "summary": {
-            "total_revenue": total_revenue,
-            "total_revenue_formatted": payment_manager.format_naira(total_revenue),
-            "total_orders": len(ORDERS_STORE),
-            "paid_orders": paid_orders,
-            "pending_orders": pending_orders,
-            "fulfilled_orders": fulfilled_orders,
-        },
-        "generated_at": datetime.datetime.now().isoformat()
-    }
-
-
-@router.get("/customers/{phone}/history")
-async def get_customer_history(phone: str):
-    """Get purchase history for a customer."""
-    history = CUSTOMER_HISTORY.get(phone, [])
-    
-    return {
-        "status": "success",
-        "customer_phone": phone,
-        "purchase_count": len(history),
-        "purchases": history,
-        "is_returning_customer": len(history) > 0
     }
 
 
