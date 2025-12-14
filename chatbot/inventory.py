@@ -296,6 +296,16 @@ class InventoryManager:
         """
         Decrement stock for a product. Returns True if successful, False if insufficient stock.
         """
+        # Handle mock mode
+        if self._use_mock or self.supabase is None:
+            for prod in self._mock_products:
+                if str(prod.get("id")) == product_id:
+                    if prod.get("stock_level", 0) >= quantity:
+                        prod["stock_level"] -= quantity
+                        return True
+                    return False
+            return False
+        
         # Get current stock
         response = self.supabase.table("products").select("stock_level").eq("id", product_id).execute()
         if not response.data:
@@ -314,15 +324,44 @@ class InventoryManager:
 
     def update_stock(self, product_id: str, quantity_delta: int) -> Optional[dict]:
         """Updates stock level (positive for restock, negative for sale)."""
+        # Handle mock mode
+        if self._use_mock or self.supabase is None:
+            for prod in self._mock_products:
+                if str(prod.get("id")) == product_id:
+                    old_stock = prod.get("stock_level", 0)
+                    prod["stock_level"] = max(0, old_stock + quantity_delta)
+                    return {"stock_level": prod["stock_level"]}
+            return None
+        
         response = self.supabase.table("products").select("stock_level").eq("id", product_id).execute()
         if not response.data:
             return None
             
         current_stock = response.data[0]["stock_level"]
-        new_stock = current_stock + quantity_delta
+        new_stock = max(0, current_stock + quantity_delta)
         
         update_response = self.supabase.table("products").update({"stock_level": new_stock}).eq("id", product_id).execute()
         return update_response.data[0] if update_response.data else None
+
+    def update_product_fields(self, product_id: str, updates: dict) -> Optional[dict]:
+        """Update product fields (name, price, stock, description, etc.)."""
+        # Handle mock mode
+        if self._use_mock or self.supabase is None:
+            for prod in self._mock_products:
+                if str(prod.get("id")) == product_id:
+                    for key, value in updates.items():
+                        if value is not None:
+                            prod[key] = value
+                    return prod
+            return None
+        
+        # Clean updates - only include non-None values
+        clean_updates = {k: v for k, v in updates.items() if v is not None}
+        if not clean_updates:
+            return None
+            
+        response = self.supabase.table("products").update(clean_updates).eq("id", product_id).execute()
+        return response.data[0] if response.data else None
     
     def list_products(self) -> List[dict]:
         """List all products."""

@@ -510,38 +510,26 @@ ORDERS_STORE = {}
 @router.put("/products/{product_id}")
 async def update_product(product_id: str, updates: ProductUpdate):
     """Update an existing product."""
-    # Find product in inventory
-    products = inventory_manager.list_products()
-    product_found = None
-    product_index = None
+    # Build updates dict
+    update_data = {
+        "name": updates.name,
+        "price_ngn": updates.price_ngn,
+        "stock_level": updates.stock_level,
+        "description": updates.description,
+        "category": updates.category,
+        "voice_tags": updates.voice_tags,
+    }
     
-    for i, p in enumerate(products):
-        if str(p.get('id')) == product_id:
-            product_found = p
-            product_index = i
-            break
+    # Use inventory manager to update
+    updated_product = inventory_manager.update_product_fields(product_id, update_data)
     
-    if not product_found:
+    if not updated_product:
         raise HTTPException(status_code=404, detail=f"Product {product_id} not found")
-    
-    # Update fields that were provided
-    if updates.name is not None:
-        product_found['name'] = updates.name
-    if updates.price_ngn is not None:
-        product_found['price_ngn'] = updates.price_ngn
-    if updates.stock_level is not None:
-        product_found['stock_level'] = updates.stock_level
-    if updates.description is not None:
-        product_found['description'] = updates.description
-    if updates.category is not None:
-        product_found['category'] = updates.category
-    if updates.voice_tags is not None:
-        product_found['voice_tags'] = updates.voice_tags
     
     return {
         "status": "success",
-        "message": f"Product '{product_found['name']}' updated",
-        "product": product_found
+        "message": f"Product '{updated_product.get('name', 'Unknown')}' updated",
+        "product": updated_product
     }
 
 
