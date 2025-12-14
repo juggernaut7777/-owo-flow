@@ -264,23 +264,62 @@ async def process_message(request: MessageRequest):
         # User said "buy", "yes", etc. after viewing a product
         product = state.current_product
         product_data = product
-        price_fmt = payment_manager.format_naira(product["price_ngn"])
+        quantity = state.quantity if state.quantity > 0 else 1
+        unit_price = int(product["price_ngn"])
+        total_price = unit_price * quantity
+        price_fmt = payment_manager.format_naira(unit_price)
+        total_fmt = payment_manager.format_naira(total_price)
         
-        if product["stock_level"] > 0:
+        if product["stock_level"] >= quantity:
+            # Generate order ID
             prod_id = str(product.get("id", ""))
-            link = payment_manager.generate_payment_link(
-                order_id=safe_order_id(user_id, prod_id),
-                amount_ngn=int(product["price_ngn"]),
-                customer_phone=user_id,
-                description=f"Purchase {product['name']}"
-            )
-            if link:
-                payment_link = link
-                response_text = response_formatter.format_payment_link(
-                    product['name'], link, price_fmt, 15
+            order_id = safe_order_id(user_id, prod_id)
+            
+            # Get vendor's bank account
+            vendor_account = VENDOR_SETTINGS.get("payment_account", {})
+            
+            if vendor_account.get("account_number"):
+                # Create order record (store in memory for now, would go to Supabase)
+                order = {
+                    "id": order_id,
+                    "customer_phone": user_id,
+                    "product_id": prod_id,
+                    "product_name": product["name"],
+                    "quantity": quantity,
+                    "unit_price": unit_price,
+                    "total_amount": total_price,
+                    "status": "pending",
+                    "created_at": __import__('datetime').datetime.now().isoformat()
+                }
+                ORDERS_STORE[order_id] = order
+                state.set_pending_order(order_id)
+                
+                # Show bank transfer details
+                response_text = response_formatter.format_bank_payment_details(
+                    product_name=product["name"],
+                    quantity=quantity,
+                    unit_price_formatted=price_fmt,
+                    total_formatted=total_fmt,
+                    bank_name=vendor_account.get("bank_name", ""),
+                    account_number=vendor_account.get("account_number", ""),
+                    account_name=vendor_account.get("account_name", ""),
+                    order_id=order_id
                 )
             else:
-                response_text = response_formatter.format_payment_link_failed()
+                # No bank account configured - fallback to payment link
+                link = payment_manager.generate_payment_link(
+                    order_id=order_id,
+                    amount_ngn=total_price,
+                    customer_phone=user_id,
+                    description=f"Purchase {quantity}x {product['name']}"
+                )
+                if link:
+                    payment_link = link
+                    response_text = response_formatter.format_payment_link(
+                        product['name'], link, total_fmt, 15
+                    )
+                else:
+                    response_text = response_formatter.format_no_bank_account()
         else:
             response_text = response_formatter.format_out_of_stock(product["name"])
         

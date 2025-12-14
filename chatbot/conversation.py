@@ -14,6 +14,8 @@ class ConversationState:
         self.current_product: Optional[dict] = None  # Currently selected product
         self.awaiting_selection: bool = False  # Waiting for user to pick from list
         self.last_query: str = ""
+        self.quantity: int = 1  # Quantity for current purchase
+        self.pending_order_id: Optional[str] = None  # Order awaiting payment confirmation
         self.last_updated: datetime = datetime.now()
     
     def is_expired(self, timeout_minutes: int = 30) -> bool:
@@ -26,6 +28,8 @@ class ConversationState:
         self.current_product = None
         self.awaiting_selection = False
         self.last_query = ""
+        self.quantity = 1
+        self.pending_order_id = None
         self.last_updated = datetime.now()
     
     def set_products(self, products: List[dict], query: str):
@@ -36,10 +40,16 @@ class ConversationState:
         self.current_product = products[0] if len(products) == 1 else None
         self.last_updated = datetime.now()
     
-    def select_product(self, product: dict):
-        """Select a specific product."""
+    def select_product(self, product: dict, quantity: int = 1):
+        """Select a specific product with optional quantity."""
         self.current_product = product
         self.awaiting_selection = False
+        self.quantity = quantity
+        self.last_updated = datetime.now()
+    
+    def set_pending_order(self, order_id: str):
+        """Store pending order awaiting payment confirmation."""
+        self.pending_order_id = order_id
         self.last_updated = datetime.now()
 
 
