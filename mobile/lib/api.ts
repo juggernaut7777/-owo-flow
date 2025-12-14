@@ -3,9 +3,9 @@
  * Connects to the FastAPI backend
  */
 
-// API Base URL - Update this after deploying kofa-api to Render
+// API Base URL - KOFA backend deployed on Render
 // For local testing: use your computer's IP like 'http://192.168.x.x:8000'
-const API_BASE_URL = 'https://kofa-api.onrender.com';  // << UPDATE THIS!
+const API_BASE_URL = 'https://owo-flow.onrender.com';
 
 export interface Product {
     id: string;
@@ -413,6 +413,84 @@ export async function setBotStyle(style: 'corporate' | 'street'): Promise<{ stat
 }
 
 
+// ============== VENDOR SETTINGS ==============
+
+export interface PaymentAccount {
+    bank_name: string;
+    account_number: string;
+    account_name: string;
+}
+
+export interface BusinessInfo {
+    name: string;
+    phone: string;
+    address: string;
+}
+
+export interface VendorSettings {
+    payment_account: PaymentAccount;
+    business_info: BusinessInfo;
+    payment_method: string;
+}
+
+/**
+ * Get all vendor settings
+ */
+export async function getVendorSettings(): Promise<{ status: string; settings: VendorSettings }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/vendor/settings`);
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.warn('Get Vendor Settings Error:', error);
+        return {
+            status: 'error',
+            settings: {
+                payment_account: { bank_name: '', account_number: '', account_name: '' },
+                business_info: { name: 'KOFA Store', phone: '', address: '' },
+                payment_method: 'bank_transfer'
+            }
+        };
+    }
+}
+
+/**
+ * Update vendor payment account
+ */
+export async function updatePaymentAccount(account: PaymentAccount): Promise<{ status: string; message: string }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/vendor/payment-account`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(account),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Update Payment Account Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Update vendor business info
+ */
+export async function updateBusinessInfo(info: BusinessInfo): Promise<{ status: string; message: string }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/vendor/business-info`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(info),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Update Business Info Error:', error);
+        throw error;
+    }
+}
+
+
 export default {
     sendMessage,
     checkHealth,
@@ -426,8 +504,12 @@ export default {
     logManualSale,
     getBotStyle,
     setBotStyle,
+    getVendorSettings,
+    updatePaymentAccount,
+    updateBusinessInfo,
     formatNaira,
     getMockProducts,
     getMockOrders,
     API_BASE_URL,
 };
+

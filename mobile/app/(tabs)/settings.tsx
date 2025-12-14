@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Switch, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { getBotStyle, setBotStyle } from '@/lib/api';
+import { getBotStyle, setBotStyle, getVendorSettings, updatePaymentAccount, PaymentAccount } from '@/lib/api';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
@@ -11,8 +11,18 @@ export default function SettingsScreen() {
     const [botStyle, setBotStyleState] = useState<'corporate' | 'street'>('corporate');
     const [isLoading, setIsLoading] = useState(false);
 
+    // Payment account state
+    const [paymentAccount, setPaymentAccount] = useState<PaymentAccount>({
+        bank_name: '',
+        account_number: '',
+        account_name: '',
+    });
+    const [isSavingAccount, setIsSavingAccount] = useState(false);
+    const [isAccountDirty, setIsAccountDirty] = useState(false);
+
     useEffect(() => {
         loadBotStyle();
+        loadVendorSettings();
     }, []);
 
     const loadBotStyle = async () => {
@@ -21,6 +31,17 @@ export default function SettingsScreen() {
             setBotStyleState(result.current_style as 'corporate' | 'street');
         } catch (error) {
             console.error('Error loading bot style:', error);
+        }
+    };
+
+    const loadVendorSettings = async () => {
+        try {
+            const result = await getVendorSettings();
+            if (result.settings?.payment_account) {
+                setPaymentAccount(result.settings.payment_account);
+            }
+        } catch (error) {
+            console.error('Error loading vendor settings:', error);
         }
     };
 
@@ -41,6 +62,29 @@ export default function SettingsScreen() {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleSavePaymentAccount = async () => {
+        if (!paymentAccount.bank_name.trim() || !paymentAccount.account_number.trim() || !paymentAccount.account_name.trim()) {
+            Alert.alert('Missing Info', 'Please fill in all payment account fields');
+            return;
+        }
+
+        setIsSavingAccount(true);
+        try {
+            await updatePaymentAccount(paymentAccount);
+            setIsAccountDirty(false);
+            Alert.alert('Saved! ✅', 'Your payment account has been updated. Buyers will see this when making purchases.');
+        } catch (error) {
+            Alert.alert('Error', 'Failed to save payment account. Please try again.');
+        } finally {
+            setIsSavingAccount(false);
+        }
+    };
+
+    const updateAccountField = (field: keyof PaymentAccount, value: string) => {
+        setPaymentAccount(prev => ({ ...prev, [field]: value }));
+        setIsAccountDirty(true);
     };
 
     return (
@@ -64,8 +108,63 @@ export default function SettingsScreen() {
                     <Text style={styles.subtitle}>Customize your experience</Text>
                 </AnimatedView>
 
+                {/* Payment Account Section */}
+                <AnimatedView entering={FadeInUp.delay(50).springify()} style={styles.section}>
+                    <Text style={styles.sectionTitle}>💳 Payment Account</Text>
+                    <Text style={styles.sectionDesc}>Your bank details for receiving payments from buyers</Text>
+
+                    <View style={styles.card}>
+                        <LinearGradient colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']} style={styles.formGradient}>
+                            <Text style={styles.inputLabel}>Bank Name</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="e.g. GTBank, Access Bank"
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                value={paymentAccount.bank_name}
+                                onChangeText={(v) => updateAccountField('bank_name', v)}
+                            />
+
+                            <Text style={styles.inputLabel}>Account Number</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="0123456789"
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                keyboardType="numeric"
+                                maxLength={10}
+                                value={paymentAccount.account_number}
+                                onChangeText={(v) => updateAccountField('account_number', v)}
+                            />
+
+                            <Text style={styles.inputLabel}>Account Name</Text>
+                            <TextInput
+                                style={styles.input}
+                                placeholder="Your account name"
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                value={paymentAccount.account_name}
+                                onChangeText={(v) => updateAccountField('account_name', v)}
+                            />
+
+                            <TouchableOpacity
+                                style={[styles.saveButton, !isAccountDirty && styles.saveButtonDisabled]}
+                                onPress={handleSavePaymentAccount}
+                                disabled={isSavingAccount || !isAccountDirty}
+                            >
+                                <LinearGradient
+                                    colors={isAccountDirty ? ['#22C55E', '#16A34A'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                                    style={styles.saveButtonGradient}
+                                >
+                                    <Ionicons name="save" size={18} color={isAccountDirty ? '#000' : '#666'} />
+                                    <Text style={[styles.saveButtonText, !isAccountDirty && styles.saveButtonTextDisabled]}>
+                                        {isSavingAccount ? 'Saving...' : 'Save Account'}
+                                    </Text>
+                                </LinearGradient>
+                            </TouchableOpacity>
+                        </LinearGradient>
+                    </View>
+                </AnimatedView>
+
                 {/* Bot Personality Section */}
-                <AnimatedView entering={FadeInUp.delay(100).springify()} style={styles.section}>
+                <AnimatedView entering={FadeInUp.delay(150).springify()} style={styles.section}>
                     <Text style={styles.sectionTitle}>🤖 Bot Personality</Text>
                     <Text style={styles.sectionDesc}>Choose how your AI sales bot communicates with customers</Text>
 
@@ -137,7 +236,7 @@ export default function SettingsScreen() {
                 </AnimatedView>
 
                 {/* About Section */}
-                <AnimatedView entering={FadeInUp.delay(200).springify()} style={styles.section}>
+                <AnimatedView entering={FadeInUp.delay(250).springify()} style={styles.section}>
                     <Text style={styles.sectionTitle}>ℹ️ About KOFA</Text>
 
                     <View style={styles.card}>
@@ -149,7 +248,7 @@ export default function SettingsScreen() {
                             <View style={styles.optionDivider} />
                             <View style={styles.aboutRow}>
                                 <Text style={styles.aboutLabel}>Backend</Text>
-                                <Text style={styles.aboutValue}>kofa-api.onrender.com</Text>
+                                <Text style={styles.aboutValue}>owo-flow.onrender.com</Text>
                             </View>
                         </LinearGradient>
                     </View>
@@ -179,6 +278,14 @@ const styles = StyleSheet.create({
     sectionDesc: { fontSize: 13, color: 'rgba(255,255,255,0.5)', marginBottom: 16 },
     card: { borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
     cardGradient: { padding: 6 },
+    formGradient: { padding: 16 },
+    inputLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)', marginBottom: 6, marginTop: 12, textTransform: 'uppercase', letterSpacing: 1, fontWeight: '600' },
+    input: { backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 14, color: '#FFFFFF', fontSize: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    saveButton: { marginTop: 20, borderRadius: 12, overflow: 'hidden' },
+    saveButtonDisabled: { opacity: 0.6 },
+    saveButtonGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, gap: 8 },
+    saveButtonText: { color: '#000', fontWeight: '700', fontSize: 15 },
+    saveButtonTextDisabled: { color: '#666' },
     optionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 14, borderRadius: 14 },
     optionRowActive: { backgroundColor: 'rgba(43, 175, 242, 0.1)' },
     optionLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
@@ -194,3 +301,4 @@ const styles = StyleSheet.create({
     aboutLabel: { fontSize: 14, color: 'rgba(255,255,255,0.6)' },
     aboutValue: { fontSize: 14, color: '#FFFFFF', fontWeight: '500' },
 });
+
