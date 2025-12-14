@@ -594,9 +594,6 @@ class OrderStatusUpdate(BaseModel):
     status: str  # "pending", "paid", "fulfilled"
 
 
-# In-memory orders store (for demo - normally would be in Supabase)
-ORDERS_STORE = {}
-
 
 @router.put("/products/{product_id}")
 async def update_product(product_id: str, updates: ProductUpdate):
@@ -658,21 +655,40 @@ async def restock_product(product_id: str, restock: RestockRequest):
 async def update_order_status(order_id: str, update: OrderStatusUpdate):
     """Update order status."""
     valid_statuses = ["pending", "paid", "fulfilled"]
-    if update.status.lower() not in valid_statuses:
+    new_status = update.status.lower()
+    
+    if new_status not in valid_statuses:
         raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
     
-    # For demo purposes, we'll just return success
-    # In production, this would update Supabase
-    ORDERS_STORE[order_id] = update.status.lower()
-    
-    return {
-        "status": "success",
-        "message": f"Order {order_id} marked as {update.status}",
-        "order": {
-            "id": order_id,
-            "status": update.status.lower()
+    # Check if order exists in ORDERS_STORE
+    if order_id in ORDERS_STORE:
+        # Update the status field within the existing order
+        ORDERS_STORE[order_id]["status"] = new_status
+        ORDERS_STORE[order_id]["updated_at"] = datetime.now().isoformat()
+        
+        if new_status == "paid":
+            ORDERS_STORE[order_id]["paid_at"] = datetime.now().isoformat()
+        elif new_status == "fulfilled":
+            ORDERS_STORE[order_id]["fulfilled_at"] = datetime.now().isoformat()
+        
+        return {
+            "status": "success",
+            "message": f"Order {order_id} marked as {new_status}",
+            "order": ORDERS_STORE[order_id]
         }
-    }
+    else:
+        # Order not in store - create a minimal record (for demo orders)
+        ORDERS_STORE[order_id] = {
+            "id": order_id,
+            "status": new_status,
+            "updated_at": datetime.now().isoformat()
+        }
+        
+        return {
+            "status": "success",
+            "message": f"Order {order_id} marked as {new_status}",
+            "order": ORDERS_STORE[order_id]
+        }
 
 
 
