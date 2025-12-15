@@ -1,5 +1,5 @@
-from fastapi import FastAPI, HTTPException, APIRouter, UploadFile, File
-from fastapi.responses import PlainTextResponse
+from fastapi import FastAPI, HTTPException, APIRouter, UploadFile, File, Request
+from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
@@ -13,6 +13,10 @@ from .conversation import conversation_manager
 from .services import vendor_state
 from .services.push_notifications import push_service, PushNotification
 from .services.bulk_operations import bulk_service
+from .services.payments import paystack_service, PaymentLinkRequest
+from .services.subscription import subscription_service, SubscriptionTier
+from .services.privacy import privacy_service, ConsentType
+from .services.localization import localization_service, Language, t
 from .routers import (
     expenses, delivery, analytics, invoice, 
     recommendations, notifications, installments, profit_loss, sales_channels, whatsapp,
@@ -1115,6 +1119,248 @@ async def get_widget_stats(vendor_id: str = "default"):
         "pending_orders": pending_count,
         "low_stock_alerts": low_stock_count,
         "currency": "NGN"
+    }
+
+
+# ============== PAYMENT ENDPOINTS (PAYSTACK) ==============
+
+class CreatePaymentRequest(BaseModel):
+    """Request to create a payment link."""
+    order_id: str
+    amount_ngn: float
+    customer_phone: str
+    description: str = "KOFA Order"
+    customer_email: Optional[str] = None
+
+
+@router.post("/payments/create-link")
+async def create_payment_link(request: CreatePaymentRequest, vendor_id: str = "default"):
+    """Generate a Paystack payment link for an order."""
+    payment_request = PaymentLinkRequest(
+        order_id=request.order_id,
+        amount_ngn=request.amount_ngn,
+        customer_phone=request.customer_phone,
+        customer_email=request.customer_email,
+        description=request.description,
+        vendor_id=vendor_id
+    )
+    
+    payment_url = await paystack_service.create_payment_link(payment_request)
+    
+    if not payment_url:
+        raise HTTPException(status_code=500, detail="Failed to create payment link")
+    
+    return {
+        "status": "success",
+        "payment_url": payment_url,
+        "order_id": request.order_id,
+        "amount_ngn": request.amount_ngn
+    }
+
+
+@router.get("/payments/verify/{reference}")
+async def verify_payment(reference: str):
+    """Verify a Paystack payment by reference."""
+    result = await paystack_service.verify_payment(reference)
+    
+    if not result:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    
+    return result
+
+
+@router.post("/payments/webhook")
+async def paystack_webhook(request: Request):
+    """Handle Paystack webhook events."""
+    body = await request.body()
+    signature = request.headers.get("x-paystack-signature", "")
+    
+    # Verify webhook signature
+    if not paystack_service.verify_webhook_signature(body, signature):
+        raise HTTPException(status_code=401, detail="Invalid signature")
+    
+    payload = await request.json()
+    event = payload.get("event", "")
+    data = payload.get("data", {})
+    
+    result = await paystack_service.process_webhook(event, data)
+    
+    # If payment successful, send push notification to vendor
+    if event == "charge.success" and result.get("processed"):
+        vendor_id = result.get("vendor_id", "default")
+        amount = result.get("amount_ngn", 0)
+        await push_service.notify_payment_received(vendor_id, f"₦{amount:,.0f}")
+    
+    return {"status": "ok"}
+
+
+# ============== SUBSCRIPTION ENDPOINTS ==============
+
+@router.get("/pricing/plans")
+async def get_pricing_plans():
+    """Get all available pricing plans."""
+    plans = subscription_service.get_all_plans()
+    return {
+        "plans": [
+            {
+                "tier": p.tier.value,
+                "name": p.name,
+                "price_monthly": p.price_ngn_monthly,
+                "price_yearly": p.price_ngn_yearly,
+                "features": p.features,
+                "limits": {
+                    "messages_per_day": p.limits.messages_per_day,
+                    "products_limit": p.limits.products_limit,
+                    "analytics_access": p.limits.analytics_access,
+                    "multi_platform": p.limits.multi_platform,
+                    "bulk_operations": p.limits.bulk_operations
+                }
+            }
+            for p in plans
+        ]
+    }
+
+
+@router.get("/subscription/status")
+async def get_subscription_status(vendor_id: str = "default"):
+    """Get vendor's current subscription status."""
+    sub = subscription_service.get_subscription(vendor_id)
+    plan = subscription_service.get_plan(sub.tier)
+    can_send, used, limit = subscription_service.check_message_limit(vendor_id)
+    
+    return {
+        "tier": sub.tier.value,
+        "plan_name": plan.name,
+        "is_active": sub.is_active,
+        "expires_at": sub.expires_at,
+        "usage": {
+            "messages_today": used,
+            "messages_limit": limit,
+            "can_send_more": can_send
+        },
+        "features": plan.features
+    }
+
+
+@router.post("/subscription/upgrade")
+async def upgrade_subscription(tier: str, vendor_id: str = "default"):
+    """Upgrade subscription to a new tier (returns payment URL)."""
+    try:
+        target_tier = SubscriptionTier(tier)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid tier: {tier}")
+    
+    # Generate payment URL for upgrade
+    upgrade_url = subscription_service.get_upgrade_url(vendor_id, target_tier)
+    plan = subscription_service.get_plan(target_tier)
+    
+    return {
+        "status": "pending_payment",
+        "tier": tier,
+        "price_monthly": plan.price_ngn_monthly,
+        "payment_url": upgrade_url
+    }
+
+
+# ============== PRIVACY/NDPR ENDPOINTS ==============
+
+class ConsentRequest(BaseModel):
+    """Consent recording request."""
+    customer_phone: str
+    consent_type: str
+    granted: bool
+
+
+@router.post("/privacy/consent")
+async def record_consent(request: ConsentRequest, vendor_id: str = "default"):
+    """Record customer consent (NDPR compliance)."""
+    try:
+        consent_type = ConsentType(request.consent_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid consent type: {request.consent_type}")
+    
+    record = privacy_service.record_consent(
+        customer_phone=request.customer_phone,
+        vendor_id=vendor_id,
+        consent_type=consent_type,
+        granted=request.granted
+    )
+    
+    return {
+        "status": "recorded",
+        "consent_type": record.consent_type.value,
+        "granted": record.granted,
+        "recorded_at": record.granted_at
+    }
+
+
+@router.get("/privacy/consent/{customer_phone}")
+async def get_consents(customer_phone: str, vendor_id: str = "default"):
+    """Get all consent records for a customer."""
+    consents = privacy_service.get_all_consents(customer_phone, vendor_id)
+    
+    return {
+        "customer_phone": customer_phone,
+        "consents": {
+            ct.value: {
+                "granted": c.granted,
+                "granted_at": c.granted_at,
+                "revoked_at": c.revoked_at
+            }
+            for ct, c in consents.items()
+        }
+    }
+
+
+@router.post("/privacy/data-deletion")
+async def request_data_deletion(customer_phone: str, vendor_id: str = "default", reason: str = None):
+    """Request deletion of customer data (Right to Erasure)."""
+    result = privacy_service.request_data_deletion(customer_phone, vendor_id, reason)
+    return result
+
+
+@router.post("/privacy/data-export")
+async def request_data_export(customer_phone: str, vendor_id: str = "default"):
+    """Request export of customer data (Right to Data Portability)."""
+    result = privacy_service.request_data_export(customer_phone, vendor_id)
+    return result
+
+
+# ============== LANGUAGE ENDPOINTS ==============
+
+@router.get("/languages")
+async def get_available_languages():
+    """Get list of supported languages."""
+    return {
+        "languages": localization_service.get_available_languages(),
+        "default": "en"
+    }
+
+
+@router.post("/languages/detect")
+async def detect_language(text: str):
+    """Auto-detect language from text."""
+    detected = localization_service.detect_language(text)
+    return {
+        "text": text,
+        "detected_language": detected.value,
+        "language_name": localization_service.get_available_languages().get(detected.value)
+    }
+
+
+@router.get("/languages/translate/{key}")
+async def get_translation(key: str, language: str = "en", **kwargs):
+    """Get translated text for a key."""
+    try:
+        lang = Language(language)
+    except ValueError:
+        lang = Language.ENGLISH
+    
+    translated = localization_service.translate(key, lang)
+    return {
+        "key": key,
+        "language": language,
+        "text": translated
     }
 
 
