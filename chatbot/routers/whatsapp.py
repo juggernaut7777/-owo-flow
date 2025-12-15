@@ -107,6 +107,20 @@ def extract_messages(payload: dict) -> List[WhatsAppMessage]:
                             message_type="text"
                         ))
                     
+                    # Handle voice/audio messages
+                    elif msg.get("type") == "audio":
+                        audio_data = msg.get("audio", {})
+                        media_id = audio_data.get("id", "")
+                        
+                        # Store media_id in text field for later transcription
+                        messages.append(WhatsAppMessage(
+                            from_number=msg.get("from", ""),
+                            message_id=msg.get("id", ""),
+                            text=f"VOICE_NOTE:{media_id}",  # Special marker
+                            timestamp=msg.get("timestamp", ""),
+                            message_type="audio"
+                        ))
+                    
                     # Handle interactive button replies
                     elif msg.get("type") == "interactive":
                         interactive = msg.get("interactive", {})
@@ -130,16 +144,38 @@ async def process_whatsapp_message(message: WhatsAppMessage):
     Process a WhatsApp message through the chatbot.
     
     This function:
-    1. Checks if bot should respond (global pause, auto-silence)
-    2. Sends the message to the chatbot
-    3. Gets the response
-    4. Sends the response back via WhatsApp
+    1. Transcribes voice notes if needed
+    2. Checks if bot should respond (global pause, auto-silence)
+    3. Sends the message to the chatbot
+    4. Gets the response
+    5. Sends the response back via WhatsApp
     """
     from ..main import inventory_manager, intent_recognizer, response_formatter
     from ..intent import Intent
     from ..services import vendor_state
+    from ..services.voice_transcription import voice_service
     
-    print(f"📨 Processing message from {message.from_number}: {message.text}")
+    message_text = message.text
+    
+    # Handle voice notes - transcribe first
+    if message.message_type == "audio" and message_text.startswith("VOICE_NOTE:"):
+        media_id = message_text.replace("VOICE_NOTE:", "")
+        print(f"🎤 Transcribing voice note from {message.from_number}...")
+        
+        transcribed_text = await voice_service.transcribe_whatsapp_voice(media_id)
+        
+        if transcribed_text:
+            message_text = transcribed_text
+            print(f"📝 Transcribed: \"{message_text}\"")
+        else:
+            # Transcription failed - send helpful message
+            await send_whatsapp_message(
+                message.from_number, 
+                "Sorry, I couldn't understand that voice note. Please try sending a text message instead! 🙏"
+            )
+            return
+    
+    print(f"📨 Processing message from {message.from_number}: {message_text}")
     
     # Check if bot should respond (respects global pause and auto-silence)
     vendor_id = "default"  # In production, extract from context
@@ -150,8 +186,8 @@ async def process_whatsapp_message(message: WhatsAppMessage):
         return
     
     try:
-        # Recognize intent
-        intent, entities = intent_recognizer.recognize(message.text)
+        # Recognize intent from text (original or transcribed)
+        intent, entities = intent_recognizer.recognize(message_text)
         
         # Generate response based on intent (simplified version)
         response_text = generate_chatbot_response(

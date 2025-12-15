@@ -1,4 +1,5 @@
-from fastapi import FastAPI, HTTPException, APIRouter
+from fastapi import FastAPI, HTTPException, APIRouter, UploadFile, File
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import uuid
@@ -10,6 +11,8 @@ from .payment import PaymentManager
 from .response_formatter import ResponseFormatter, ResponseStyle
 from .conversation import conversation_manager
 from .services import vendor_state
+from .services.push_notifications import push_service, PushNotification
+from .services.bulk_operations import bulk_service
 from .routers import (
     expenses, delivery, analytics, invoice, 
     recommendations, notifications, installments, profit_loss, sales_channels, whatsapp,
@@ -944,6 +947,174 @@ async def check_should_respond(customer_id: str, vendor_id: str = "default"):
     return {
         "should_respond": should_respond,
         "reason": reason
+    }
+
+
+# ============== PUSH NOTIFICATIONS ENDPOINTS ==============
+
+class DeviceTokenRequest(BaseModel):
+    """Register device for push notifications."""
+    expo_token: str
+    device_type: str = "unknown"  # "ios" or "android"
+
+
+@router.post("/device-tokens")
+async def register_device_token(request: DeviceTokenRequest, vendor_id: str = "default"):
+    """Register a device to receive push notifications."""
+    push_service.register_device(vendor_id, request.expo_token, request.device_type)
+    return {
+        "status": "success",
+        "message": "Device registered for push notifications",
+        "vendor_id": vendor_id
+    }
+
+
+@router.delete("/device-tokens")
+async def unregister_device_token(expo_token: str, vendor_id: str = "default"):
+    """Unregister a device from push notifications."""
+    push_service.unregister_device(vendor_id, expo_token)
+    return {
+        "status": "success",
+        "message": "Device unregistered"
+    }
+
+
+@router.post("/notifications/test")
+async def test_push_notification(vendor_id: str = "default"):
+    """Send a test push notification to all vendor devices."""
+    result = await push_service.send_notification(
+        vendor_id,
+        PushNotification(
+            title="🎉 Test Notification",
+            body="KOFA push notifications are working!",
+            data={"type": "test"}
+        )
+    )
+    return result
+
+
+# ============== BULK OPERATIONS ENDPOINTS ==============
+
+class BulkPriceUpdateRequest(BaseModel):
+    """Bulk price update request."""
+    percent_change: float  # e.g., 10 for +10%, -5 for -5%
+    category: Optional[str] = None
+
+
+class BulkRestockItem(BaseModel):
+    """Single item for bulk restock."""
+    product_id: str
+    quantity: int
+
+
+class BulkRestockRequest(BaseModel):
+    """Bulk restock request."""
+    items: List[BulkRestockItem]
+
+
+@router.post("/products/import")
+async def import_products_csv(
+    file: UploadFile = File(...),
+    vendor_id: str = "default",
+    update_existing: bool = False
+):
+    """Import products from CSV file."""
+    content = await file.read()
+    csv_content = content.decode("utf-8")
+    
+    result = await bulk_service.import_products(vendor_id, csv_content, update_existing)
+    
+    return {
+        "status": "success" if result.success_count > 0 else "error",
+        "imported": result.success_count,
+        "errors": result.error_count,
+        "error_details": result.errors[:10],  # Limit error details
+        "created_ids": result.created_ids
+    }
+
+
+@router.get("/products/export")
+async def export_products_csv(vendor_id: str = "default"):
+    """Export all products to CSV."""
+    result = await bulk_service.export_products(vendor_id)
+    
+    return PlainTextResponse(
+        content=result.csv_content,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": f"attachment; filename=kofa_products_{vendor_id}.csv"
+        }
+    )
+
+
+@router.get("/products/import/template")
+async def get_import_template():
+    """Get a CSV template for product import."""
+    template = bulk_service.generate_template_csv()
+    
+    return PlainTextResponse(
+        content=template,
+        media_type="text/csv",
+        headers={
+            "Content-Disposition": "attachment; filename=kofa_product_template.csv"
+        }
+    )
+
+
+@router.post("/products/bulk-price-update")
+async def bulk_update_prices(request: BulkPriceUpdateRequest, vendor_id: str = "default"):
+    """Update prices by percentage for all products or a category."""
+    result = await bulk_service.bulk_update_prices(
+        vendor_id, 
+        request.percent_change, 
+        request.category
+    )
+    return result
+
+
+@router.post("/products/bulk-restock")
+async def bulk_restock(request: BulkRestockRequest, vendor_id: str = "default"):
+    """Add stock to multiple products at once."""
+    restock_data = [{"product_id": item.product_id, "quantity": item.quantity} for item in request.items]
+    result = await bulk_service.bulk_restock(vendor_id, restock_data)
+    return result
+
+
+# ============== WIDGET ENDPOINTS ==============
+
+@router.get("/widget/stats")
+async def get_widget_stats(vendor_id: str = "default"):
+    """
+    Lightweight stats endpoint for home screen widget.
+    Returns minimal data for fast widget updates.
+    """
+    from datetime import date
+    
+    today = date.today().isoformat()
+    
+    # Calculate today's revenue and order count
+    today_orders = [
+        o for o in ORDERS_STORE.values()
+        if o.get("created_at", "").startswith(today) and o.get("status") in ["paid", "fulfilled"]
+    ]
+    
+    today_revenue = sum(o.get("total_amount", 0) for o in today_orders)
+    today_order_count = len(today_orders)
+    
+    # Pending orders needing attention
+    pending_count = sum(1 for o in ORDERS_STORE.values() if o.get("status") == "pending")
+    
+    # Low stock count
+    products = inventory_manager.list_products()
+    low_stock_count = sum(1 for p in products if p.get("stock_level", 0) <= LOW_STOCK_THRESHOLD)
+    
+    return {
+        "date": today,
+        "revenue_today": today_revenue,
+        "orders_today": today_order_count,
+        "pending_orders": pending_count,
+        "low_stock_alerts": low_stock_count,
+        "currency": "NGN"
     }
 
 

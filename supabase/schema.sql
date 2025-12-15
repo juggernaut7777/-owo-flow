@@ -1,11 +1,36 @@
--- KOFA Commerce Engine - Supabase Schema
+-- KOFA Commerce Engine - Supabase Schema (Multi-Vendor Edition)
 -- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/YOUR_PROJECT/sql
 
 -- ===========================================
--- PRODUCTS TABLE
+-- VENDORS TABLE (Multi-Vendor Support)
+-- ===========================================
+CREATE TABLE IF NOT EXISTS vendors (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name TEXT NOT NULL,
+    phone TEXT UNIQUE,
+    email TEXT,
+    business_name TEXT,
+    business_address TEXT,
+    bank_account_number TEXT,
+    bank_name TEXT,
+    bank_account_name TEXT,
+    bot_style TEXT DEFAULT 'corporate' CHECK (bot_style IN ('corporate', 'street')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Create default vendor for existing data
+INSERT INTO vendors (id, name, phone, business_name) 
+VALUES ('00000000-0000-0000-0000-000000000001', 'Default Vendor', '+234000000000', 'KOFA Store')
+ON CONFLICT DO NOTHING;
+
+-- ===========================================
+-- PRODUCTS TABLE (with vendor_id)
 -- ===========================================
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id UUID REFERENCES vendors(id) DEFAULT '00000000-0000-0000-0000-000000000001',
     name TEXT NOT NULL,
     price_ngn DECIMAL(12, 2) NOT NULL,
     stock_level INTEGER NOT NULL DEFAULT 0,
@@ -18,10 +43,11 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 -- ===========================================
--- ORDERS TABLE
+-- ORDERS TABLE (with vendor_id)
 -- ===========================================
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id UUID REFERENCES vendors(id) DEFAULT '00000000-0000-0000-0000-000000000001',
     customer_phone TEXT,
     items JSONB NOT NULL DEFAULT '[]',
     total_amount DECIMAL(12, 2) NOT NULL,
@@ -33,10 +59,11 @@ CREATE TABLE IF NOT EXISTS orders (
 );
 
 -- ===========================================
--- EXPENSES TABLE (for Spend module)
+-- EXPENSES TABLE (with vendor_id)
 -- ===========================================
 CREATE TABLE IF NOT EXISTS expenses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id UUID REFERENCES vendors(id) DEFAULT '00000000-0000-0000-0000-000000000001',
     description TEXT NOT NULL,
     amount DECIMAL(12, 2) NOT NULL,
     category TEXT,
@@ -45,10 +72,11 @@ CREATE TABLE IF NOT EXISTS expenses (
 );
 
 -- ===========================================
--- MANUAL SALES TABLE (Instagram, walk-in, etc.)
+-- MANUAL SALES TABLE (with vendor_id)
 -- ===========================================
 CREATE TABLE IF NOT EXISTS manual_sales (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id UUID REFERENCES vendors(id) DEFAULT '00000000-0000-0000-0000-000000000001',
     product_name TEXT NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 1,
     amount_ngn DECIMAL(12, 2) NOT NULL,
@@ -58,14 +86,86 @@ CREATE TABLE IF NOT EXISTS manual_sales (
 );
 
 -- ===========================================
+-- DEVICE TOKENS (for Push Notifications)
+-- ===========================================
+CREATE TABLE IF NOT EXISTS device_tokens (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id UUID REFERENCES vendors(id) NOT NULL,
+    expo_token TEXT NOT NULL,
+    device_type TEXT CHECK (device_type IN ('ios', 'android')),
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    UNIQUE(vendor_id, expo_token)
+);
+
+-- ===========================================
+-- OFFLINE SYNC QUEUE (for Offline Mode)
+-- ===========================================
+CREATE TABLE IF NOT EXISTS sync_queue (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id UUID REFERENCES vendors(id) NOT NULL,
+    action_type TEXT NOT NULL CHECK (action_type IN ('create_order', 'create_sale', 'update_stock', 'create_expense')),
+    payload JSONB NOT NULL,
+    synced BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    synced_at TIMESTAMP WITH TIME ZONE
+);
+
+-- ===========================================
+-- BOT STATE TRACKING (with vendor reference)
+-- ===========================================
+CREATE TABLE IF NOT EXISTS vendor_bot_state (
+    vendor_id UUID REFERENCES vendors(id) PRIMARY KEY,
+    is_paused BOOLEAN DEFAULT FALSE,
+    paused_at TIMESTAMP WITH TIME ZONE,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- ===========================================
+-- PLATFORM MESSAGE TRACKING (with vendor_id)
+-- ===========================================
+CREATE TABLE IF NOT EXISTS platform_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id UUID REFERENCES vendors(id) DEFAULT '00000000-0000-0000-0000-000000000001',
+    platform TEXT NOT NULL CHECK (platform IN ('whatsapp', 'instagram', 'tiktok')),
+    customer_id TEXT NOT NULL,
+    message_type TEXT CHECK (message_type IN ('customer', 'bot', 'vendor')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- ===========================================
+-- VENDOR ACTIVITY TRACKING (for auto-silence)
+-- ===========================================
+CREATE TABLE IF NOT EXISTS vendor_activity (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vendor_id UUID REFERENCES vendors(id) NOT NULL,
+    customer_id TEXT NOT NULL,
+    platform TEXT NOT NULL,
+    active_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+    silenced_until TIMESTAMP WITH TIME ZONE
+);
+
+-- ===========================================
 -- INDEXES
 -- ===========================================
+CREATE INDEX IF NOT EXISTS idx_products_vendor ON products(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+CREATE INDEX IF NOT EXISTS idx_orders_vendor ON orders(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_orders_customer_phone ON orders(customer_phone);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_payment_ref ON orders(payment_ref);
-CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+CREATE INDEX IF NOT EXISTS idx_expenses_vendor ON expenses(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_expenses_type ON expenses(expense_type);
+CREATE INDEX IF NOT EXISTS idx_manual_sales_vendor ON manual_sales(vendor_id);
 CREATE INDEX IF NOT EXISTS idx_manual_sales_channel ON manual_sales(channel);
+CREATE INDEX IF NOT EXISTS idx_device_tokens_vendor ON device_tokens(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_vendor ON sync_queue(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_synced ON sync_queue(synced);
+CREATE INDEX IF NOT EXISTS idx_platform_messages_vendor ON platform_messages(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_platform_messages_platform ON platform_messages(platform);
+CREATE INDEX IF NOT EXISTS idx_platform_messages_created ON platform_messages(created_at);
+CREATE INDEX IF NOT EXISTS idx_vendor_activity_vendor ON vendor_activity(vendor_id);
+CREATE INDEX IF NOT EXISTS idx_vendor_activity_customer ON vendor_activity(customer_id);
 
 -- ===========================================
 -- AUTO-UPDATE TIMESTAMP TRIGGER
@@ -79,6 +179,11 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Triggers
+DROP TRIGGER IF EXISTS update_vendors_updated_at ON vendors;
+CREATE TRIGGER update_vendors_updated_at 
+    BEFORE UPDATE ON vendors
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 DROP TRIGGER IF EXISTS update_products_updated_at ON products;
 CREATE TRIGGER update_products_updated_at 
     BEFORE UPDATE ON products
@@ -92,8 +197,9 @@ CREATE TRIGGER update_orders_updated_at
 -- ===========================================
 -- SAMPLE DATA (Nigerian market optimized)
 -- ===========================================
-INSERT INTO products (name, price_ngn, stock_level, voice_tags, description, category) VALUES
+INSERT INTO products (vendor_id, name, price_ngn, stock_level, voice_tags, description, category) VALUES
     (
+        '00000000-0000-0000-0000-000000000001',
         'Nike Air Max Red',
         45000,
         12,
@@ -102,6 +208,7 @@ INSERT INTO products (name, price_ngn, stock_level, voice_tags, description, cat
         'Footwear'
     ),
     (
+        '00000000-0000-0000-0000-000000000001',
         'Adidas White Sneakers',
         38000,
         10,
@@ -110,6 +217,7 @@ INSERT INTO products (name, price_ngn, stock_level, voice_tags, description, cat
         'Footwear'
     ),
     (
+        '00000000-0000-0000-0000-000000000001',
         'Men Formal Shirt White',
         15000,
         20,
@@ -118,6 +226,7 @@ INSERT INTO products (name, price_ngn, stock_level, voice_tags, description, cat
         'Clothing'
     ),
     (
+        '00000000-0000-0000-0000-000000000001',
         'Designer Blue Jeans',
         25000,
         15,
@@ -126,6 +235,7 @@ INSERT INTO products (name, price_ngn, stock_level, voice_tags, description, cat
         'Clothing'
     ),
     (
+        '00000000-0000-0000-0000-000000000001',
         'Black Leather Bag',
         35000,
         5,
@@ -134,6 +244,7 @@ INSERT INTO products (name, price_ngn, stock_level, voice_tags, description, cat
         'Accessories'
     ),
     (
+        '00000000-0000-0000-0000-000000000001',
         'Plain Round Neck T-Shirt',
         8000,
         50,
@@ -144,41 +255,10 @@ INSERT INTO products (name, price_ngn, stock_level, voice_tags, description, cat
 ON CONFLICT DO NOTHING;
 
 -- ===========================================
--- BOT STATE TRACKING (for auto-silence & global pause)
+-- MIGRATION SCRIPT (for existing data)
+-- Run this separately if you have existing data
 -- ===========================================
-CREATE TABLE IF NOT EXISTS vendor_bot_state (
-    vendor_id TEXT PRIMARY KEY,
-    is_paused BOOLEAN DEFAULT FALSE,
-    paused_at TIMESTAMP WITH TIME ZONE,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- ===========================================
--- PLATFORM MESSAGE TRACKING (for cross-platform analytics)
--- ===========================================
-CREATE TABLE IF NOT EXISTS platform_messages (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    platform TEXT NOT NULL CHECK (platform IN ('whatsapp', 'instagram', 'tiktok')),
-    customer_id TEXT NOT NULL,
-    message_type TEXT CHECK (message_type IN ('customer', 'bot', 'vendor')),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
-);
-
--- ===========================================
--- VENDOR ACTIVITY TRACKING (for auto-silence)
--- ===========================================
-CREATE TABLE IF NOT EXISTS vendor_activity (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    vendor_id TEXT NOT NULL,
-    customer_id TEXT NOT NULL,
-    platform TEXT NOT NULL,
-    active_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
-    silenced_until TIMESTAMP WITH TIME ZONE
-);
-
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_platform_messages_platform ON platform_messages(platform);
-CREATE INDEX IF NOT EXISTS idx_platform_messages_created ON platform_messages(created_at);
-CREATE INDEX IF NOT EXISTS idx_vendor_activity_vendor ON vendor_activity(vendor_id);
-CREATE INDEX IF NOT EXISTS idx_vendor_activity_customer ON vendor_activity(customer_id);
-
+-- UPDATE products SET vendor_id = '00000000-0000-0000-0000-000000000001' WHERE vendor_id IS NULL;
+-- UPDATE orders SET vendor_id = '00000000-0000-0000-0000-000000000001' WHERE vendor_id IS NULL;
+-- UPDATE expenses SET vendor_id = '00000000-0000-0000-0000-000000000001' WHERE vendor_id IS NULL;
+-- UPDATE manual_sales SET vendor_id = '00000000-0000-0000-0000-000000000001' WHERE vendor_id IS NULL;

@@ -580,6 +580,87 @@ export async function getCrossPlatformAnalytics(): Promise<CrossPlatformAnalytic
 }
 
 
+// ============== WIDGET STATS ==============
+
+export interface WidgetStats {
+    date: string;
+    revenue_today: number;
+    orders_today: number;
+    pending_orders: number;
+    low_stock_alerts: number;
+    currency: string;
+}
+
+/**
+ * Get lightweight stats for home screen widget
+ */
+export async function getWidgetStats(): Promise<WidgetStats> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/widget/stats`);
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.warn('Get Widget Stats Error:', error);
+        return {
+            date: new Date().toISOString().split('T')[0],
+            revenue_today: 0,
+            orders_today: 0,
+            pending_orders: 0,
+            low_stock_alerts: 0,
+            currency: 'NGN',
+        };
+    }
+}
+
+
+// ============== PUSH NOTIFICATIONS ==============
+
+/**
+ * Register device for push notifications
+ */
+export async function registerPushToken(
+    expoToken: string,
+    deviceType: string = 'unknown',
+    vendorId: string = 'default'
+): Promise<{ status: string; message: string }> {
+    try {
+        const response = await fetch(`${API_BASE_URL}/device-tokens?vendor_id=${vendorId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                expo_token: expoToken,
+                device_type: deviceType,
+            }),
+        });
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Register Push Token Error:', error);
+        throw error;
+    }
+}
+
+/**
+ * Unregister device from push notifications
+ */
+export async function unregisterPushToken(
+    expoToken: string,
+    vendorId: string = 'default'
+): Promise<{ status: string }> {
+    try {
+        const response = await fetch(
+            `${API_BASE_URL}/device-tokens?expo_token=${encodeURIComponent(expoToken)}&vendor_id=${vendorId}`,
+            { method: 'DELETE' }
+        );
+        if (!response.ok) throw new Error(`API error: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Unregister Push Token Error:', error);
+        throw error;
+    }
+}
+
+
 export default {
     sendMessage,
     checkHealth,
@@ -602,6 +683,9 @@ export default {
     getBotStatus,
     toggleBotPause,
     getCrossPlatformAnalytics,
+    getWidgetStats,
+    registerPushToken,
+    unregisterPushToken,
     API_BASE_URL,
 };
 
