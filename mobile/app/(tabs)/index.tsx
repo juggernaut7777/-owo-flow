@@ -699,6 +699,5 @@ const styles = StyleSheet.create({
   imagePickerText: { fontSize: 13, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
   removeImageButton: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 16 },
   removeImageText: { color: '#EF4444', fontSize: 13, fontWeight: '600' },
-  productImage: { width: 56, height: 56, borderRadius: 14 },
   productImagePlaceholder: { width: 56, height: 56, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.1)', justifyContent: 'center', alignItems: 'center' },
 });

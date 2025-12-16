@@ -69,9 +69,9 @@ function RootLayoutNav() {
     } else if (isAuthenticated && inAuthGroup) {
       // Just logged in, check onboarding
       if (hasOnboarded) {
-        router.replace('/(tabs)');
+        router.replace('/(tabs)' as any);
       } else {
-        router.replace('/(onboarding)');
+        router.replace('/(onboarding)' as any);
       }
     } else if (isAuthenticated && hasOnboarded && inOnboardingGroup) {
       // Already onboarded, go to main app

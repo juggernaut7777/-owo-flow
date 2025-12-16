@@ -16,6 +16,8 @@ Notifications.setNotificationHandler({
         shouldShowAlert: true,
         shouldPlaySound: true,
         shouldSetBadge: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
     }),
 });
 
@@ -189,7 +191,10 @@ export function handleNotificationTap(
     response: Notifications.NotificationResponse,
     navigation: any // React Navigation object
 ): void {
-    const data = response.notification.request.content.data as PushNotificationData;
+    const rawData = response.notification.request.content.data;
+    const data = rawData as unknown as PushNotificationData | undefined;
+
+    if (!data?.type) return;
 
     switch (data.type) {
         case 'new_order':
