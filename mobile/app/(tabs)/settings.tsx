@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Animated, { FadeInDown, FadeInUp, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { getBotStyle, setBotStyle, getVendorSettings, updatePaymentAccount, PaymentAccount, getBotStatus, toggleBotPause } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 
@@ -24,6 +25,16 @@ export default function SettingsScreen() {
     const [isBotPaused, setIsBotPaused] = useState(false);
     const [isTogglingPause, setIsTogglingPause] = useState(false);
     const [activeSilences, setActiveSilences] = useState(0);
+
+    // Auth
+    const { signOut, user } = useAuth();
+
+    // Social connections state
+    const [socialConnections, setSocialConnections] = useState({
+        whatsapp: false,
+        instagram: false,
+        tiktok: false,
+    });
 
     // Pulsing animation for active indicator
     const pulseOpacity = useSharedValue(1);
@@ -343,6 +354,112 @@ export default function SettingsScreen() {
                     </View>
                 </AnimatedView>
 
+                {/* Connected Accounts Section */}
+                <AnimatedView entering={FadeInDown.delay(400)} style={styles.section}>
+                    <Text style={styles.sectionTitle}>Connected Accounts</Text>
+                    <Text style={styles.sectionDesc}>Link your social platforms for automated responses</Text>
+
+                    <View style={styles.card}>
+                        <LinearGradient colors={['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.02)']} style={styles.cardGradient}>
+                            {/* WhatsApp */}
+                            <TouchableOpacity
+                                style={styles.socialRow}
+                                onPress={() => Alert.alert('WhatsApp Business', 'WhatsApp Business API integration coming soon! This will allow automated responses to your customers.')}
+                            >
+                                <View style={[styles.socialIcon, { backgroundColor: 'rgba(37, 211, 102, 0.2)' }]}>
+                                    <Ionicons name="logo-whatsapp" size={22} color="#25D366" />
+                                </View>
+                                <View style={styles.socialInfo}>
+                                    <Text style={styles.socialName}>WhatsApp Business</Text>
+                                    <Text style={styles.socialStatus}>
+                                        {socialConnections.whatsapp ? '✓ Connected' : 'Not connected'}
+                                    </Text>
+                                </View>
+                                <View style={[styles.connectionBadge, socialConnections.whatsapp && styles.connectionBadgeActive]}>
+                                    <Text style={[styles.connectionBadgeText, socialConnections.whatsapp && styles.connectionBadgeTextActive]}>
+                                        {socialConnections.whatsapp ? 'Active' : 'Connect'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <View style={styles.optionDivider} />
+
+                            {/* Instagram */}
+                            <TouchableOpacity
+                                style={styles.socialRow}
+                                onPress={() => Alert.alert('Instagram Business', 'Instagram Business API integration coming soon! Connect your Instagram account to enable automated DM responses.')}
+                            >
+                                <View style={[styles.socialIcon, { backgroundColor: 'rgba(225, 48, 165, 0.2)' }]}>
+                                    <Ionicons name="logo-instagram" size={22} color="#E130A5" />
+                                </View>
+                                <View style={styles.socialInfo}>
+                                    <Text style={styles.socialName}>Instagram Business</Text>
+                                    <Text style={styles.socialStatus}>
+                                        {socialConnections.instagram ? '✓ Connected' : 'Not connected'}
+                                    </Text>
+                                </View>
+                                <View style={[styles.connectionBadge, socialConnections.instagram && styles.connectionBadgeActive]}>
+                                    <Text style={[styles.connectionBadgeText, socialConnections.instagram && styles.connectionBadgeTextActive]}>
+                                        {socialConnections.instagram ? 'Active' : 'Connect'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+
+                            <View style={styles.optionDivider} />
+
+                            {/* TikTok */}
+                            <TouchableOpacity
+                                style={styles.socialRow}
+                                onPress={() => Alert.alert('TikTok Shop', 'TikTok Shop integration coming soon! Connect to manage your TikTok storefront and messages.')}
+                            >
+                                <View style={[styles.socialIcon, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}>
+                                    <Ionicons name="musical-notes" size={22} color="#FFF" />
+                                </View>
+                                <View style={styles.socialInfo}>
+                                    <Text style={styles.socialName}>TikTok Shop</Text>
+                                    <Text style={styles.socialStatus}>
+                                        {socialConnections.tiktok ? '✓ Connected' : 'Not connected'}
+                                    </Text>
+                                </View>
+                                <View style={[styles.connectionBadge, socialConnections.tiktok && styles.connectionBadgeActive]}>
+                                    <Text style={[styles.connectionBadgeText, socialConnections.tiktok && styles.connectionBadgeTextActive]}>
+                                        {socialConnections.tiktok ? 'Active' : 'Connect'}
+                                    </Text>
+                                </View>
+                            </TouchableOpacity>
+                        </LinearGradient>
+                    </View>
+                </AnimatedView>
+
+                {/* Logout Section */}
+                <AnimatedView entering={FadeInDown.delay(500)} style={styles.section}>
+                    <TouchableOpacity
+                        style={styles.logoutButton}
+                        onPress={() => {
+                            Alert.alert(
+                                'Sign Out',
+                                'Are you sure you want to sign out?',
+                                [
+                                    { text: 'Cancel', style: 'cancel' },
+                                    {
+                                        text: 'Sign Out',
+                                        style: 'destructive',
+                                        onPress: async () => {
+                                            await signOut();
+                                        }
+                                    }
+                                ]
+                            );
+                        }}
+                    >
+                        <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+                        <Text style={styles.logoutButtonText}>Sign Out</Text>
+                    </TouchableOpacity>
+                    {user?.email && (
+                        <Text style={styles.userEmail}>Signed in as {user.email}</Text>
+                    )}
+                </AnimatedView>
+
                 <View style={{ height: 120 }} />
             </ScrollView>
         </View>
@@ -400,5 +517,19 @@ const styles = StyleSheet.create({
     botControlDesc: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 18 },
     botInfoBox: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 12, padding: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 10, gap: 8 },
     botInfoText: { flex: 1, fontSize: 12, color: 'rgba(255,255,255,0.4)', lineHeight: 18 },
+    // Social connection styles
+    socialRow: { flexDirection: 'row', alignItems: 'center', padding: 16 },
+    socialIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    socialInfo: { flex: 1 },
+    socialName: { fontSize: 15, fontWeight: '600', color: '#FFFFFF' },
+    socialStatus: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+    connectionBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+    connectionBadgeActive: { backgroundColor: 'rgba(34, 197, 94, 0.2)', borderColor: 'rgba(34, 197, 94, 0.3)' },
+    connectionBadgeText: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
+    connectionBadgeTextActive: { color: '#22C55E' },
+    // Logout styles
+    logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(239, 68, 68, 0.2)', gap: 8 },
+    logoutButtonText: { fontSize: 15, fontWeight: '600', color: '#EF4444' },
+    userEmail: { textAlign: 'center', fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 12 },
 });
 
