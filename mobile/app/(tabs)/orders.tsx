@@ -4,7 +4,7 @@ import Animated, { FadeInDown, FadeInUp, FadeIn } from 'react-native-reanimated'
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '@/constants';
-import { formatNaira, fetchOrders, Order, logManualSale, ManualSaleData, updateOrderStatus } from '@/lib/api';
+import { formatNaira, fetchOrders, Order, logManualSale, ManualSaleData, updateOrderStatus, getCrossPlatformAnalytics, CrossPlatformAnalytics } from '@/lib/api';
 
 const AnimatedView = Animated.createAnimatedComponent(View);
 const AnimatedTouchable = Animated.createAnimatedComponent(TouchableOpacity);
@@ -61,7 +61,11 @@ export default function OrdersScreen() {
         notes: '',
     });
 
-    useEffect(() => { loadOrders(); }, []);
+    // Cross-platform analytics state
+    const [platformAnalytics, setPlatformAnalytics] = useState<CrossPlatformAnalytics | null>(null);
+    const [showAnalytics, setShowAnalytics] = useState(false);
+
+    useEffect(() => { loadOrders(); loadAnalytics(); }, []);
 
     const loadOrders = async () => {
         try {
@@ -72,9 +76,18 @@ export default function OrdersScreen() {
         }
     };
 
+    const loadAnalytics = async () => {
+        try {
+            const data = await getCrossPlatformAnalytics();
+            setPlatformAnalytics(data);
+        } catch (error) {
+            console.error("Error loading analytics:", error);
+        }
+    };
+
     const onRefresh = () => {
         setRefreshing(true);
-        loadOrders().finally(() => setRefreshing(false));
+        Promise.all([loadOrders(), loadAnalytics()]).finally(() => setRefreshing(false));
     };
 
     // Open order detail
@@ -243,6 +256,73 @@ export default function OrdersScreen() {
                         </LinearGradient>
                     </View>
                 </View>
+            </AnimatedView>
+
+            {/* Cross-Platform Analytics */}
+            <AnimatedView entering={FadeInUp.delay(120).springify()} style={styles.analyticsContainer}>
+                <TouchableOpacity style={styles.analyticsToggle} onPress={() => setShowAnalytics(!showAnalytics)}>
+                    <View style={styles.analyticsHeader}>
+                        <Text style={styles.analyticsTitle}>📊 Platform Analytics</Text>
+                        <Text style={styles.analyticsSubtitle}>WhatsApp • Instagram • TikTok</Text>
+                    </View>
+                    <Ionicons name={showAnalytics ? "chevron-up" : "chevron-down"} size={20} color="rgba(255,255,255,0.5)" />
+                </TouchableOpacity>
+
+                {showAnalytics && platformAnalytics && (
+                    <View style={styles.analyticsContent}>
+                        {/* Platform Breakdown */}
+                        <View style={styles.platformRow}>
+                            <View style={styles.platformCard}>
+                                <LinearGradient colors={['rgba(37, 211, 102, 0.2)', 'rgba(37, 211, 102, 0.05)']} style={styles.platformCardGradient}>
+                                    <Text style={styles.platformIcon}>💬</Text>
+                                    <Text style={styles.platformName}>WhatsApp</Text>
+                                    <Text style={styles.platformMessages}>{platformAnalytics.platforms.whatsapp.total_messages} msgs</Text>
+                                    <Text style={styles.platformRevenue}>{formatNaira(platformAnalytics.platforms.whatsapp.revenue_ngn)}</Text>
+                                </LinearGradient>
+                            </View>
+                            <View style={styles.platformCard}>
+                                <LinearGradient colors={['rgba(225, 48, 108, 0.2)', 'rgba(225, 48, 108, 0.05)']} style={styles.platformCardGradient}>
+                                    <Text style={styles.platformIcon}>📸</Text>
+                                    <Text style={styles.platformName}>Instagram</Text>
+                                    <Text style={styles.platformMessages}>{platformAnalytics.platforms.instagram.total_messages} msgs</Text>
+                                    <Text style={styles.platformRevenue}>{formatNaira(platformAnalytics.platforms.instagram.revenue_ngn)}</Text>
+                                </LinearGradient>
+                            </View>
+                            <View style={styles.platformCard}>
+                                <LinearGradient colors={['rgba(0, 0, 0, 0.3)', 'rgba(0, 0, 0, 0.1)']} style={styles.platformCardGradient}>
+                                    <Text style={styles.platformIcon}>🎵</Text>
+                                    <Text style={styles.platformName}>TikTok</Text>
+                                    <Text style={styles.platformMessages}>{platformAnalytics.platforms.tiktok.total_messages} msgs</Text>
+                                    <Text style={styles.platformRevenue}>{formatNaira(platformAnalytics.platforms.tiktok.revenue_ngn)}</Text>
+                                </LinearGradient>
+                            </View>
+                        </View>
+
+                        {/* Summary */}
+                        <View style={styles.analyticsSummary}>
+                            <View style={styles.summaryItem}>
+                                <Text style={styles.summaryValue}>{platformAnalytics.summary.total_messages}</Text>
+                                <Text style={styles.summaryLabel}>Total Messages</Text>
+                            </View>
+                            <View style={styles.summaryDivider} />
+                            <View style={styles.summaryItem}>
+                                <Text style={styles.summaryValue}>{platformAnalytics.summary.total_orders}</Text>
+                                <Text style={styles.summaryLabel}>Orders</Text>
+                            </View>
+                            <View style={styles.summaryDivider} />
+                            <View style={styles.summaryItem}>
+                                <Text style={[styles.summaryValue, { color: '#2BAFF2' }]}>{formatNaira(platformAnalytics.summary.total_revenue_ngn)}</Text>
+                                <Text style={styles.summaryLabel}>Total Revenue</Text>
+                            </View>
+                        </View>
+
+                        {platformAnalytics.summary.best_platform && (
+                            <View style={styles.bestPlatformBadge}>
+                                <Text style={styles.bestPlatformText}>🏆 Best: {platformAnalytics.summary.best_platform}</Text>
+                            </View>
+                        )}
+                    </View>
+                )}
             </AnimatedView>
 
             {/* Filters */}
@@ -556,4 +636,25 @@ const styles = StyleSheet.create({
     statusBtnGradient: { paddingVertical: 14, alignItems: 'center' },
     statusBtnText: { color: '#000', fontWeight: '700', fontSize: 14 },
     completedText: { fontSize: 16, color: '#22C55E', fontWeight: '600', paddingVertical: 12 },
+    // Analytics Styles
+    analyticsContainer: { marginHorizontal: 20, marginBottom: 12 },
+    analyticsToggle: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    analyticsHeader: { flex: 1 },
+    analyticsTitle: { fontSize: 14, fontWeight: '600', color: '#FFFFFF' },
+    analyticsSubtitle: { fontSize: 11, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+    analyticsContent: { marginTop: 12 },
+    platformRow: { flexDirection: 'row', gap: 8 },
+    platformCard: { flex: 1, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+    platformCardGradient: { padding: 12, alignItems: 'center' },
+    platformIcon: { fontSize: 16, marginBottom: 4 },
+    platformName: { fontSize: 10, color: 'rgba(255,255,255,0.6)', fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+    platformMessages: { fontSize: 11, color: 'rgba(255,255,255,0.5)', marginTop: 4 },
+    platformRevenue: { fontSize: 11, color: '#2BAFF2', fontWeight: '700', marginTop: 2 },
+    analyticsSummary: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, marginTop: 12, alignItems: 'center' },
+    summaryItem: { flex: 1, alignItems: 'center' },
+    summaryValue: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
+    summaryLabel: { fontSize: 10, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
+    summaryDivider: { width: 1, height: 30, backgroundColor: 'rgba(255,255,255,0.1)' },
+    bestPlatformBadge: { alignSelf: 'center', marginTop: 12, backgroundColor: 'rgba(43, 175, 242, 0.15)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 },
+    bestPlatformText: { fontSize: 12, color: '#2BAFF2', fontWeight: '600' },
 });

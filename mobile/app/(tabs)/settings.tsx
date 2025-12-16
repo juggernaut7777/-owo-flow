@@ -337,7 +337,7 @@ export default function SettingsScreen() {
                             <View style={styles.optionDivider} />
                             <View style={styles.aboutRow}>
                                 <Text style={styles.aboutLabel}>Backend</Text>
-                                <Text style={styles.aboutValue}>owo-flow.onrender.com</Text>
+                                <Text style={styles.aboutValue}>kofa-dhko.onrender.com</Text>
                             </View>
                         </LinearGradient>
                     </View>
