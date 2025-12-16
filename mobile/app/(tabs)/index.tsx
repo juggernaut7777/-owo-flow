@@ -223,14 +223,21 @@ export default function InventoryScreen() {
           style={styles.cardGradient}
         >
           <View style={styles.productRow}>
-            <LinearGradient
-              colors={['#2BAFF2', '#1F57F5']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.productIcon}
-            >
-              <Text style={styles.iconEmoji}>📦</Text>
-            </LinearGradient>
+            {item.image_url ? (
+              <Image
+                source={{ uri: item.image_url }}
+                style={styles.productImage}
+              />
+            ) : (
+              <LinearGradient
+                colors={['#2BAFF2', '#1F57F5']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.productIcon}
+              >
+                <Text style={styles.iconEmoji}>📦</Text>
+              </LinearGradient>
+            )}
 
             <View style={styles.productInfo}>
               <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
@@ -622,6 +629,7 @@ const styles = StyleSheet.create({
   cardGradient: { padding: 16 },
   productRow: { flexDirection: 'row', alignItems: 'center' },
   productIcon: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  productImage: { width: 52, height: 52, borderRadius: 14, resizeMode: 'cover' },
   iconEmoji: { fontSize: 24 },
   productInfo: { flex: 1, marginLeft: 14 },
   productName: { fontSize: 16, fontWeight: '600', color: '#FFFFFF', marginBottom: 4 },

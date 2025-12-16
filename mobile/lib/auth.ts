@@ -5,9 +5,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient, Session, User, AuthError } from '@supabase/supabase-js';
 
-// Supabase configuration - using the same credentials as backend
-const SUPABASE_URL = 'https://your-project.supabase.co'; // Will be replaced with actual URL
-const SUPABASE_ANON_KEY = 'your-supabase-anon-key'; // Will be replaced with actual key
+// Supabase configuration
+const SUPABASE_URL = 'https://dnleuqubwqoijcvbwtmp.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRubGV1cXVid3FvaWpjdmJ3dG1wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1Mzg1MzcsImV4cCI6MjA4MTExNDUzN30.sZAn9SR0jwMMfEYEanxh1YY26djW89Cr4TAOPas4_e8';
 
 // Create Supabase client with AsyncStorage for session persistence
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
